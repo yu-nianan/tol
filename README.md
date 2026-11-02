@@ -162,7 +162,29 @@ docker compose up --build
 
 ---
 
-## 9. 下一步
+## 9. 仓库与团队文档
+
+仓库：<https://github.com/yu-nianan/tol>（默认分支 `main`）
+
+| 文档 | 内容 | 谁看 |
+|---|---|---|
+| [AGENTS.md](AGENTS.md) | AI 智能体入职须知：能改哪、7 条硬性禁令、怎样算做完 | 每个人（开工前必读） |
+| [OWNERS.md](OWNERS.md) | 目录 → 负责人 → 可写/只读，跨模块需求流程 | 每个人 |
+| [docs/需求清单.md](docs/需求清单.md) | 28 条功能需求 + 10 条非功能 + 11 项交付物 + 待确认 8 问 | 队长、A |
+| [docs/技术学习路线.md](docs/技术学习路线.md) | 21 项技术、5 个里程碑、模块×技术对照 | A/B/C/D |
+| [docs/测试方案.md](docs/测试方案.md) | 测试策略、用例、测评集口径 | C、队长 |
+| [docs/协作机制说明.md](docs/协作机制说明.md) | 公告话术、认领会脚本、培训脚本、日历 | 队长 |
+| [docs/decisions.md](docs/decisions.md) | 技术决策记录（只追加） | 队长 |
+| [docs/tickets/模板.md](docs/tickets/模板.md) | 任务单模板（9 段） | 派活的人 |
+
+**自动化**：每次 push / PR，GitHub Actions 会自动跑 `ruff` + `pytest` + 冒烟（[ci.yml](.github/workflows/ci.yml)）。
+CI 红了就是不可合并 —— 这条比"记得跑一下"可靠。
+
+分支规矩（见 AGENTS.md §6）：`main` 只放能跑的版本，开发一律走 `feature/<模块>-<短描述>`，PR 必须贴三条命令输出。
+
+---
+
+## 10. 下一步
 
 - 想接大模型：看 `docs/tickets/T-01-接入大模型.md`（待写）
 - 想接 ASR：看 `app/pipelines/audio/asr.py` 顶部注释里的实现顺序

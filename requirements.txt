@@ -1,0 +1,9 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.5
+httpx>=0.27
+python-multipart>=0.0.9
+
+# 开发期工具（也可单独装）
+ruff>=0.6
+pytest>=8.0

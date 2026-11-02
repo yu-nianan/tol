@@ -1,0 +1,26 @@
+# 依赖与缓存
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.log
+
+# 密钥：只提交 .env.example
+.env
+.env.*
+
+# 数据：素材不入库，只保留样例
+# 注意：不能写 `data/` —— Git 不允许把"被忽略目录"里的文件再放回来
+data/*
+!data/.gitkeep
+!data/samples/
+!data/samples/*.txt
+
+# 模型权重与导出物（第 6 周起会用到）
+*.onnx
+*.pt
+*.bin
+models/
+dist/
+build/

@@ -1,0 +1,166 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-11-02",
+  "scripts": [
+    {
+      "id": "S01",
+      "name": "冒充公检法",
+      "risk_base": 95,
+      "advice": [
+        "立即挂断，拨打 96110 或 110 核实",
+        "公检法不会通过电话要求转账或提供验证码",
+        "不要向任何人透露银行卡号、密码、验证码"
+      ],
+      "stages": [
+        { "name": "contact", "label": "接触", "weight": 0.3, "signals": ["公安", "派出所", "警官", "专案组"] },
+        { "name": "authority", "label": "立威", "weight": 0.55, "signals": ["涉嫌洗钱", "涉嫌犯罪", "通缉", "传唤", "办案"] },
+        { "name": "isolate", "label": "隔离", "weight": 0.75, "signals": ["不许告诉", "保密", "一个人", "不要挂断"] },
+        { "name": "transfer", "label": "诱导转账", "weight": 0.95, "signals": ["安全账户", "资金审查", "转账", "验证码"] }
+      ]
+    },
+    {
+      "id": "S02",
+      "name": "刷单返利",
+      "risk_base": 88,
+      "advice": [
+        "刷单本身违法，任何垫付都不做",
+        "小额返利是诱饵，大额任务必被套",
+        "保存聊天与转账记录，立即举报"
+      ],
+      "stages": [
+        { "name": "recruit", "label": "招募", "weight": 0.3, "signals": ["兼职", "接单", "日结", "刷单"] },
+        { "name": "small_gain", "label": "小额返利", "weight": 0.5, "signals": ["返利", "佣金", "小额返"] },
+        { "name": "pay", "label": "要求垫付", "weight": 0.7, "signals": ["垫付", "任务单", "大额", "三单一起"] },
+        { "name": "trap", "label": "套牢", "weight": 0.9, "signals": ["解冻", "继续充值", "不返本金", "系统卡单"] }
+      ]
+    },
+    {
+      "id": "S03",
+      "name": "虚假投资理财",
+      "risk_base": 92,
+      "advice": [
+        "未持牌平台一律不投，先在证监会/基金业协会查资质",
+        "提现受阻、要求交税或保证金，是典型杀猪盘信号",
+        "不要相信任何“内幕消息”和“稳赚”承诺"
+      ],
+      "stages": [
+        { "name": "contact", "label": "接触", "weight": 0.3, "signals": ["投资群", "老师", "荐股"] },
+        { "name": "trust", "label": "建立信任", "weight": 0.5, "signals": ["内幕", "稳赚", "收益翻倍"] },
+        { "name": "platform", "label": "引导入金", "weight": 0.7, "signals": ["下载APP", "充值", "提现"] },
+        { "name": "trap", "label": "无法提现", "weight": 0.9, "signals": ["提现失败", "交税", "保证金"] }
+      ]
+    },
+    {
+      "id": "S04",
+      "name": "冒充客服退款",
+      "risk_base": 85,
+      "advice": [
+        "真正的退款不需要你操作，更不需要屏幕共享",
+        "挂断后自己打开官方 APP 或官网核对订单",
+        "任何人索要验证码都是诈骗"
+      ],
+      "stages": [
+        { "name": "contact", "label": "自称客服", "weight": 0.3, "signals": ["客服", "订单异常", "快递"] },
+        { "name": "refund", "label": "承诺退款", "weight": 0.5, "signals": ["退款", "理赔", "双倍"] },
+        { "name": "operate", "label": "操控手机", "weight": 0.7, "signals": ["屏幕共享", "远程协助", "银行APP"] },
+        { "name": "transfer", "label": "转账", "weight": 0.9, "signals": ["转账", "验证码", "借贷"] }
+      ]
+    },
+    {
+      "id": "S05",
+      "name": "虚假网络贷款",
+      "risk_base": 82,
+      "advice": [
+        "放款前先收费的一律是诈骗",
+        "不下载陌生贷款 APP，走银行或持牌机构",
+        "征信无法“修复”，说能修复的就是骗子"
+      ],
+      "stages": [
+        { "name": "ad", "label": "广告引流", "weight": 0.3, "signals": ["无抵押", "秒批", "低息"] },
+        { "name": "apply", "label": "申请环节", "weight": 0.5, "signals": ["额度", "流水包装"] },
+        { "name": "fee", "label": "收取费用", "weight": 0.7, "signals": ["手续费", "解冻费", "保证金"] },
+        { "name": "trap", "label": "连环收费", "weight": 0.9, "signals": ["转账", "逾期", "征信"] }
+      ]
+    },
+    {
+      "id": "S06",
+      "name": "杀猪盘（婚恋诱导投资）",
+      "risk_base": 90,
+      "advice": [
+        "网恋对象主动谈投资、谈平台，一律按诈骗处理",
+        "不向陌生平台充值，不用借贷资金投资",
+        "把这段关系告诉家人，让第三方帮你判断"
+      ],
+      "stages": [
+        { "name": "romance", "label": "建立关系", "weight": 0.3, "signals": ["交友", "恋爱", "异地"] },
+        { "name": "invest", "label": "引入投资", "weight": 0.5, "signals": ["带你投资", "稳赚", "平台"] },
+        { "name": "escalate", "label": "加仓", "weight": 0.7, "signals": ["充值", "加仓", "借呗"] },
+        { "name": "trap", "label": "冻结提现", "weight": 0.9, "signals": ["提现失败", "冻结", "交税"] }
+      ]
+    },
+    {
+      "id": "S07",
+      "name": "冒充熟人领导",
+      "risk_base": 80,
+      "advice": [
+        "换号一律打原号码或当面核实",
+        "领导不会让你先垫钱、也不会催你立刻转账",
+        "转账前把截图发给第三个人看一眼"
+      ],
+      "stages": [
+        { "name": "identity", "label": "冒充身份", "weight": 0.3, "signals": ["换号", "新号", "领导", "老板"] },
+        { "name": "urgent", "label": "制造紧急", "weight": 0.5, "signals": ["急用钱", "在开会", "不方便电话"] },
+        { "name": "pay", "label": "要求垫付", "weight": 0.7, "signals": ["帮我转", "转账", "先垫"] },
+        { "name": "trap", "label": "追加", "weight": 0.9, "signals": ["撤回", "再转一笔", "还差一点"] }
+      ]
+    },
+    {
+      "id": "S08",
+      "name": "虚假中奖与快递理赔",
+      "risk_base": 75,
+      "advice": [
+        "先交手续费、保证金的中奖都是假的",
+        "快递理赔只在官方 APP 内操作",
+        "不填写身份证、银行卡等敏感信息"
+      ],
+      "stages": [
+        { "name": "notice", "label": "通知中奖", "weight": 0.3, "signals": ["中奖", "抽奖", "礼品"] },
+        { "name": "claim", "label": "领奖环节", "weight": 0.5, "signals": ["领奖", "填写信息", "快递理赔"] },
+        { "name": "fee", "label": "收取费用", "weight": 0.7, "signals": ["手续费", "保证金", "税费"] },
+        { "name": "trap", "label": "骗取验证码", "weight": 0.9, "signals": ["转账", "验证码"] }
+      ]
+    },
+    {
+      "id": "S09",
+      "name": "校园贷与助学金骗局",
+      "risk_base": 78,
+      "advice": [
+        "助学金、奖学金发放不需要交任何费用",
+        "校园贷一律不碰，遇到催收立即告诉辅导员",
+        "一切以学校资助中心官方通知为准"
+      ],
+      "stages": [
+        { "name": "target", "label": "锁定学生", "weight": 0.3, "signals": ["助学金", "奖学金", "学费"] },
+        { "name": "apply", "label": "要求配合", "weight": 0.5, "signals": ["手续费", "保证金", "信息填写"] },
+        { "name": "loan", "label": "引入贷款", "weight": 0.7, "signals": ["校园贷", "分期", "借款"] },
+        { "name": "trap", "label": "套牢", "weight": 0.9, "signals": ["征信", "催收", "转账"] }
+      ]
+    },
+    {
+      "id": "S10",
+      "name": "虚拟货币与跑分洗钱",
+      "risk_base": 92,
+      "advice": [
+        "出借银行卡、收款码属于帮信罪，会被追责",
+        "跑分、代收款一律拒绝",
+        "已转账或已出借账户，立即报警并保留证据"
+      ],
+      "stages": [
+        { "name": "recruit", "label": "招募", "weight": 0.3, "signals": ["跑分", "代收款", "虚拟币"] },
+        { "name": "task", "label": "派任务", "weight": 0.5, "signals": ["USDT", "刷流水", "走账"] },
+        { "name": "pay", "label": "收押金", "weight": 0.7, "signals": ["押金", "保证金", "链接"] },
+        { "name": "trap", "label": "资金被冻", "weight": 0.9, "signals": ["冻结", "洗钱", "止付"] }
+      ]
+    }
+  ]
+}

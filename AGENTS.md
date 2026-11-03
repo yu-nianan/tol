@@ -111,11 +111,15 @@ python scripts/docs.py check
 
 | 检查 | 说明 | 能自动修 |
 | --- | --- | --- |
-| front-matter | 每份文档开头必须有 `title / owner / status / last_updated / summary / audience` | ✅ `--fix` |
+| front-matter | 每份文档开头必须有 `title / owner / status / last_updated / summary / audience` | ✅ `--fix`（owner 除外） |
+| owner 代号 | `owner` 只能是 `队长 / A / B / C / D`（见 `scripts/owners.txt`），不许填空、真名、工具名 | ❌ 必须手填 |
 | INDEX 一致 | `docs/INDEX.md` 必须与磁盘一致 | ✅ 重跑 `index` |
 | 死链 | `[文字](相对路径)` 指向的文件必须存在 | ❌ |
 | 合规 | 密钥、真实手机号/身份证、竞赛匿名词 | ❌ 人工改 |
 | 回执完整 | `docs/reports/` 里必须有四节：做了什么 / 没做完 / 下次接手 / 怎么验收 | ✅ 补空节 |
+
+**`owner` 永远填人（代号），不填工具。** 你用的 agent 叫什么不重要，署名必须是负责的人；
+要记录工具，写在回执正文的「工具：」一行里。
 
 卡住就按提示修，或跑一次：
 

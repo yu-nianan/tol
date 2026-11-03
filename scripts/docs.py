@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 INDEX = DOCS / "INDEX.md"
 FORBIDDEN_FILE = ROOT / "scripts" / "forbidden_words.txt"
+OWNERS_FILE = ROOT / "scripts" / "owners.txt"
 
 REQUIRED = ("title", "owner", "status", "last_updated", "summary", "audience")
 STATUS_OK = {"draft", "review", "final"}
@@ -129,6 +130,17 @@ def load_forbidden() -> list[str]:
     return words
 
 
+def load_owners() -> list[str]:
+    if not OWNERS_FILE.is_file():
+        return []
+    owners = []
+    for raw in read_text(OWNERS_FILE).splitlines():
+        s = raw.strip()
+        if s and not s.startswith("#"):
+            owners.append(s)
+    return owners
+
+
 def default_meta(path: Path, text: str) -> dict[str, str]:
     title = path.stem
     summary = "（待补一句话说明）"
@@ -146,7 +158,7 @@ def default_meta(path: Path, text: str) -> dict[str, str]:
             break
     return {
         "title": title,
-        "owner": "待填",
+        "owner": "",
         "status": "draft",
         "last_updated": dt.date.today().isoformat(),
         "summary": summary,
@@ -157,7 +169,7 @@ def default_meta(path: Path, text: str) -> dict[str, str]:
 # ---------------------------------------------------------------- 检查
 
 
-def check_file(path: Path, forbidden: list[str], today: dt.date):
+def check_file(path: Path, forbidden: list[str], today: dt.date, owners: list[str]):
     """返回 issue 列表：dict(path, line, level, msg)。level: block / warn"""
     issues: list[dict] = []
     rel = rel_of(path)
@@ -180,6 +192,11 @@ def check_file(path: Path, forbidden: list[str], today: dt.date):
             add(1, "block", f"status 只能是 {'/'.join(sorted(STATUS_OK))}，当前={meta['status']}")
         if meta.get("audience") and meta["audience"] not in AUDIENCE_OK:
             add(1, "block", f"audience 只能是 {'/'.join(sorted(AUDIENCE_OK))}，当前={meta['audience']}")
+        owner = meta.get("owner", "")
+        if not owner:
+            add(1, "block", "owner 不能为空：填代号（队长/A/B/C/D，见 scripts/owners.txt）")
+        elif owners and owner not in owners:
+            add(1, "block", f"owner「{owner}」不在代号表里（可用：{' / '.join(owners)}）")
         stamp = meta.get("last_updated", "")
         if stamp:
             if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", stamp):
@@ -308,10 +325,11 @@ def cmd_index(_args) -> int:
 
 def cmd_check(_args) -> int:
     forbidden = load_forbidden()
+    owners = load_owners()
     today = dt.date.today()
     issues: list[dict] = []
     for path in iter_docs():
-        issues.extend(check_file(path, forbidden, today))
+        issues.extend(check_file(path, forbidden, today, owners))
 
     expected = build_index()
     if not INDEX.is_file():
@@ -362,6 +380,9 @@ def cmd_fix(_args) -> int:
         touched = False
         for key in REQUIRED:
             if not filled.get(key):
+                if key == "owner":
+                    out(f"需要手填 owner：{rel_of(path)}  （可选：队长 / A / B / C / D）")
+                    continue
                 filled[key] = today if key == "last_updated" else default[key]
                 touched = True
         if filled.get("status") not in STATUS_OK:

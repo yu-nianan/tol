@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """文档体系工具：生成 INDEX、检查元数据与合规、自动修复。
 
 在仓库根目录运行：
@@ -73,6 +73,12 @@ def out(text: str = "") -> None:
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8").lstrip("\ufeff")
+
+
+def write_text(path: Path, text: str) -> None:
+    """统一按 LF 写盘。Windows 上 write_text 默认转 CRLF，会让 INDEX 永远显示已修改。"""
+    with path.open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
 
 
 def read_front_matter(text: str):
@@ -318,7 +324,7 @@ def build_index() -> str:
 
 def cmd_index(_args) -> int:
     text = build_index()
-    INDEX.write_text(text, encoding="utf-8")
+    write_text(INDEX, text)
     out(f"已生成 {INDEX.relative_to(ROOT).as_posix()}")
     return 0
 
@@ -371,7 +377,7 @@ def cmd_fix(_args) -> int:
             continue
         if state == "missing":
             head = dump_front_matter(default_meta(path, text))
-            path.write_text(head + "\n" + text, encoding="utf-8")
+            write_text(path, head + "\n" + text)
             out(f"补 front-matter：{rel_of(path)}")
             changed += 1
             continue
@@ -395,7 +401,7 @@ def cmd_fix(_args) -> int:
             pass
         else:
             body = "\n".join(lines[body_line - 1 :])
-            path.write_text(dump_front_matter(filled) + "\n" + body, encoding="utf-8")
+            write_text(path, dump_front_matter(filled) + "\n" + body)
             out(f"补字段：{rel_of(path)}")
             changed += 1
 
@@ -404,11 +410,11 @@ def cmd_fix(_args) -> int:
             missing = [s for s in REPORT_SECTIONS if s not in content]
             if missing:
                 addition = "".join(f"\n## {s}\n（待补）\n" for s in missing)
-                path.write_text(content.rstrip() + "\n" + addition, encoding="utf-8")
+                write_text(path, content.rstrip() + "\n" + addition)
                 out(f"补小节：{rel_of(path)} → {', '.join(missing)}")
                 changed += 1
 
-    INDEX.write_text(build_index(), encoding="utf-8")
+    write_text(INDEX, build_index())
     out(f"已重建 docs/INDEX.md；共改动 {changed} 处")
     return 0
 

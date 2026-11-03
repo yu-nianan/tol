@@ -1,0 +1,51 @@
+name: 文档问题
+description: 文档缺失、过期、自相矛盾 —— 让下一个 Agent 别再踩同一个坑
+title: "[文档] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        文档问题的价值在于**止损**：你踩了坑，写下来，后面的人就不用再踩。
+
+  - type: input
+    id: path
+    attributes:
+      label: 哪份文档
+      description: 贴相对路径
+      placeholder: docs/modules/text.md
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 哪里不对
+      description: 缺失 / 过期 / 与代码不一致 / 与另一份文档冲突，写清是哪一种
+      placeholder: 例：文档说 Decision 有 stage_index 字段，但 app/schemas/alert.py 里没有。
+    validations:
+      required: true
+
+  - type: textarea
+    id: correct
+    attributes:
+      label: 你认为正确的是什么
+      description: 附证据（代码位置 / 命令输出 / 手册页码）
+      placeholder: 例：app/schemas/alert.py:38 的 Decision 只有 stage_score，没有 stage_index。
+    validations:
+      required: true
+
+  - type: input
+    id: owner
+    attributes:
+      label: 需要谁确认
+      description: 哪份文档的 owner（见 docs/INDEX.md），或队长
+      placeholder: 队长
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: 这个错误会让别人怎么踩坑
+      description: 一句话
+      placeholder: 例：会让接手的人按不存在的字段写代码，联调时才发现。

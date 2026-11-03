@@ -1,0 +1,42 @@
+name: docs
+
+# 文档门禁：只检查"文档有没有烂"，不碰代码质量。
+# 规则实现在 scripts/docs.py，改规则请改脚本，不要在这里堆 shell。
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "AGENTS.md"
+      - "OWNERS.md"
+      - "scripts/docs.py"
+      - "scripts/forbidden_words.txt"
+      - ".github/ISSUE_TEMPLATE/**"
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "AGENTS.md"
+      - "OWNERS.md"
+      - "scripts/docs.py"
+      - "scripts/forbidden_words.txt"
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 文档门禁（front-matter / INDEX / 死链 / 合规 / 回执）
+        run: python scripts/docs.py check
+
+      - name: 失败时给出修复命令
+        if: failure()
+        run: |
+          echo "::error::文档门禁未通过。本地跑这两条命令再提交："
+          echo "  python scripts/docs.py fix"
+          echo "  python scripts/docs.py index"

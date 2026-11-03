@@ -168,16 +168,19 @@ docker compose up --build
 
 | 文档 | 内容 | 谁看 |
 |---|---|---|
-| [AGENTS.md](AGENTS.md) | AI 智能体入职须知：能改哪、7 条硬性禁令、怎样算做完 | 每个人（开工前必读） |
+| [AGENTS.md](AGENTS.md) | AI 智能体入职须知：读什么、能改哪、四条命令、怎样算做完 | 每个人（开工前必读） |
 | [OWNERS.md](OWNERS.md) | 目录 → 负责人 → 可写/只读，跨模块需求流程 | 每个人 |
+| [docs/INDEX.md](docs/INDEX.md) | **文档索引（自动生成）**，Agent 从这里决定读哪份 | 每个人、每个 Agent |
 | [docs/需求清单.md](docs/需求清单.md) | 28 条功能需求 + 10 条非功能 + 11 项交付物 + 待确认 8 问 | 队长、A |
 | [docs/技术学习路线.md](docs/技术学习路线.md) | 21 项技术、5 个里程碑、模块×技术对照 | A/B/C/D |
 | [docs/测试方案.md](docs/测试方案.md) | 测试策略、用例、测评集口径 | C、队长 |
-| [docs/协作机制说明.md](docs/协作机制说明.md) | 公告话术、认领会脚本、培训脚本、日历 | 队长 |
-| [docs/decisions.md](docs/decisions.md) | 技术决策记录（只追加） | 队长 |
-| [docs/tickets/模板.md](docs/tickets/模板.md) | 任务单模板（9 段） | 派活的人 |
+| [docs/decisions/](docs/decisions/) | 技术决策记录，一条一个 ADR 文件 | 队长 |
+| [docs/reports/_模板.md](docs/reports/_模板.md) | 任务回执模板（四节，每完成一个任务写一份） | 每个人 |
+| [docs/tickets/_模板.md](docs/tickets/_模板.md) | 任务单模板（9 段） | 派活的人 |
+| [docs/archive/协作机制说明.md](docs/archive/协作机制说明.md) | 旧版落地包（已并入 AGENTS.md，只作历史参考） | 无需阅读 |
 
 **自动化**：每次 push / PR，GitHub Actions 会自动跑 `ruff` + `pytest` + 冒烟（[ci.yml](.github/workflows/ci.yml)）。
+文档另有门禁：`python scripts/docs.py check` 检查 front-matter、索引一致性、死链、匿名词、回执完整性（[docs.yml](.github/workflows/docs.yml)）。
 CI 红了就是不可合并 —— 这条比"记得跑一下"可靠。
 
 分支规矩（见 AGENTS.md §6）：`main` 只放能跑的版本，开发一律走 `feature/<模块>-<短描述>`，PR 必须贴三条命令输出。

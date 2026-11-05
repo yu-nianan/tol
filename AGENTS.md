@@ -99,6 +99,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1 -Task all
 
 **PR 描述里必须粘贴三条命令的完整输出**（不只是最后一行）。没贴 = 未完成。
 
+**`main` 分支的保护规则（重要）**：人工审批数为 **0**（GitHub 不允许自己批自己，所以不要求人批），
+能否合并完全由 CI 决定——`check`（ci.yml）与 `docs`（docs.yml）两个必需检查全绿才能合入。
+因此「本地四条命令全绿」和「PR 能合」是同一件事，不要指望有人点 Approve。
+CODEOWNERS 目前只用于指派 reviewer，**没有**开启"必须 code owner 批准"。
+
 ---
 
 ## 4. 第四条命令：文档门禁

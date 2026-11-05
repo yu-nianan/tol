@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
@@ -131,4 +133,16 @@ async function report() {
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
 def index() -> str:
+    """优先返回 frontend/index.html（负责人 D 的页面）；没有就用内置的兜底页。
+
+    这样 D 只要在 frontend/ 下写文件就能生效，不需要动后端代码，
+    也不会出现"两边各改一份演示页"的分叉。
+    """
+    page = page_path()
+    if page.is_file():
+        return page.read_text(encoding="utf-8")
     return PAGE
+
+
+def page_path() -> Path:
+    return Path(__file__).resolve().parents[2] / "frontend" / "index.html"

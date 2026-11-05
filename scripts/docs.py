@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """文档体系工具：生成 INDEX、检查元数据与合规、自动修复。
 
 在仓库根目录运行：
@@ -147,6 +147,23 @@ def load_owners() -> list[str]:
     return owners
 
 
+def parse_depends_on(raw: str) -> list[str]:
+    """把 front-matter 的 depends_on 解析成路径列表。
+
+    容忍写法：`[]`、空、`[a.md]`、`[a.md, ../b.md]`、`["a.md"]`。
+    路径一律相对本文档所在目录，与正文链接的解析规则一致。
+    """
+    text = (raw or "").strip()
+    if text.startswith("[") and text.endswith("]"):
+        text = text[1:-1]
+    deps: list[str] = []
+    for item in text.split(","):
+        dep = item.strip().strip("\"'").strip()
+        if dep:
+            deps.append(dep)
+    return deps
+
+
 def default_meta(path: Path, text: str) -> dict[str, str]:
     title = path.stem
     summary = "（待补一句话说明）"
@@ -216,6 +233,9 @@ def check_file(path: Path, forbidden: list[str], today: dt.date, owners: list[st
                     add(1, "warn", f"last_updated 在未来（{stamp}）")
                 elif meta.get("status") == "final" and age > STALE_DAYS:
                     add(1, "warn", f"status=final 但已 {age} 天未更新，建议复核")
+        for dep in parse_depends_on(meta.get("depends_on", "")):
+            if not (path.parent / dep).exists():
+                add(1, "block", f"depends_on 指向不存在的文件：{dep}")
 
     in_fence = False
     for no, line in enumerate(lines, start=1):

@@ -112,14 +112,14 @@ CODEOWNERS 目前只用于指派 reviewer，**没有**开启"必须 code owner �
 python scripts/docs.py check
 ```
 
-它检查五件事，任何一件不合规都会红：
+它检查六件事，任何一件不合规都会红：
 
 | 检查 | 说明 | 能自动修 |
 | --- | --- | --- |
 | front-matter | 每份文档开头必须有 `title / owner / status / last_updated / summary / audience` | ✅ `--fix`（owner 除外） |
 | owner 代号 | `owner` 只能是 `队长 / A / B / C / D`（见 `scripts/owners.txt`），不许填空、真名、工具名 | ❌ 必须手填 |
 | INDEX 一致 | `docs/INDEX.md` 必须与磁盘一致 | ✅ 重跑 `index` |
-| 死链 | `[文字](相对路径)` 指向的文件必须存在 | ❌ |
+| 死链 | 正文 `[文字](相对路径)` 与 front-matter `depends_on` 指向的文件都必须存在 | ❌ |
 | 合规 | 密钥、真实手机号/身份证、竞赛匿名词 | ❌ 人工改 |
 | 回执完整 | `docs/reports/` 里必须有四节：做了什么 / 没做完 / 下次接手 / 怎么验收 | ✅ 补空节 |
 
@@ -246,6 +246,21 @@ python scripts/docs.py index    # 只重建索引
 - 开赛第一周发两条公告：选型表（7 个槽位）+ 认领表，然后 20 分钟培训。
 - 只保留一场"认领会"（认领模块 + 认领任务），技术判断由队长单点决定，48 小时异议期。
 - 验收看两件事：第 2 周三条命令全绿；第 8 周 `docker compose up` 能演示。
+
+**CI 卡死时的逃生通道（只有队长能用，且要留痕）**
+
+ruleset `main-protection-ci` 没有 bypass 角色，如果 GitHub Actions 自己挂了（不是代码红、是 Actions 红），
+任何 PR 都合不进去。此时的唯一出口是临时把规则关掉：
+
+```powershell
+gh api repos/yu-nianan/tol/rulesets            # 先拿到 ruleset id
+gh api -X PATCH repos/yu-nianan/tol/rulesets/<id> -f enforcement=disabled
+# 合完 PR 立刻恢复
+gh api -X PATCH repos/yu-nianan/tol/rulesets/<id> -f enforcement=active
+```
+
+规矩：**只许在"Actions 故障"时用**，用完当天的回执里必须写一行「逃生通道使用：时间 / 原因 / 已恢复」。
+判断顺序永远是：先看本地四条命令 → 再看 Actions 日志红在哪一步 → 确认是 Actions 故障才动规则。
 
 ---
 

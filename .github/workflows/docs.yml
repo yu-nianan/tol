@@ -3,15 +3,12 @@ name: docs
 # 文档门禁：只检查"文档有没有烂"，不碰代码质量。
 # 规则实现在 scripts/docs.py，改规则请改脚本，不要在这里堆 shell。
 
+# 注意：pull_request 故意**不加** paths 过滤。
+# 原因：一旦把 docs 这个 job 设为「必需检查」，只在改文档时触发，会让纯代码 PR
+# 永远卡在 "Expected — waiting for status to be reported"，合不进去。
+# 这个 job 只跑一次 docs.py check（约 2 秒），全量跑的代价可以忽略。
 on:
   pull_request:
-    paths:
-      - "docs/**"
-      - "AGENTS.md"
-      - "OWNERS.md"
-      - "scripts/docs.py"
-      - "scripts/forbidden_words.txt"
-      - ".github/ISSUE_TEMPLATE/**"
   push:
     branches: [main]
     paths:

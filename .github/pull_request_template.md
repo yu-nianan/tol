@@ -6,16 +6,21 @@
 
 - `docs/tickets/T-xxx.md`
 
-## 三条命令的输出（必填，整段粘贴）
+## 命令输出（必填，整段粘贴）
 
 ```text
-（把 pwsh scripts/check.ps1 -Task all 的完整输出贴在这里）
+$ pwsh scripts/check.ps1 -Task all
+（贴完整输出）
+
+$ python scripts/docs.py check
+（贴完整输出；只改了代码、没碰文档时也要贴）
 ```
 
 ## 影响范围
 
 - [ ] 只改了自己名下的路径（`git status` 确认过）
-- [ ] 涉及接口/数据结构的变化：**无** / 有（已按 AGENTS.md 第 9 节申请契约变更）
+- [ ] 涉及接口/数据结构的变化：**无** / 有（已按 AGENTS.md 第 13 节申请契约变更）
+- [ ] 动了 `docs/` 下的文档（`docs/INDEX.md` 已用 `python scripts/docs.py index` 重新生成，没有手改）
 
 ## 演示相关（勾一个）
 
@@ -25,6 +30,8 @@
 ## 不合并的情况（自查）
 
 - [ ] 没有贴命令输出 → **不合并**
+- [ ] `docs.py check` 是红的 → **不合并**
 - [ ] 改了 `app/schemas/**` 但没在群里公告 → **不合并**
 - [ ] 有硬编码假结果但没说明 → **不合并**
 - [ ] 把测试断言改了让测试通过 → **不合并**
+- [ ] 手改了 `docs/INDEX.md` → **不合并**

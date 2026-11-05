@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 任务回执写这里，不是 Issue
+    url: https://github.com/yu-nianan/tol/tree/main/docs/reports
+    about: 只是汇报"我做完了 / 我卡在哪但能绕过去"，请复制 _模板.md 写进仓库，不要开 Issue。
+  - name: 先读文档索引
+    url: https://github.com/yu-nianan/tol/blob/main/docs/INDEX.md
+    about: 提需求或报文档问题之前，先确认这件事是不是已经有文档写过了。

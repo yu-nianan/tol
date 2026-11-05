@@ -1,0 +1,73 @@
+name: 阻塞或授权
+description: 缺权限、缺账号、缺数据、缺算力 —— 卡住时用这个，附报错原文
+title: "[阻塞] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **先看两件事再提**：① 同一个错误是否已经试过至少两次？② 报错原文能不能整段贴出来？
+        只写"不行""报错了"的 Issue 会被直接退回。
+
+  - type: input
+    id: where
+    attributes:
+      label: 卡在哪
+      description: 哪个模块、哪个文件、哪条命令
+      placeholder: 例：app/pipelines/audio/asr.py，跑 check.ps1 -Task test
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: 报错原文
+      description: 整段贴，不要截取关键句，不要翻译
+      render: text
+      placeholder: |
+        Traceback (most recent call last):
+          File "app/pipelines/audio/asr.py", line 42, in <module>
+        ModuleNotFoundError: No module named 'funasr'
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: 已经试过什么
+      description: 一条一行，包括"试了但没用"的
+      placeholder: |
+        1. pip install funasr（超时）
+        2. 换清华镜像安装（装上了，但 import 报 DLL 找不到）
+    validations:
+      required: true
+
+  - type: input
+    id: need
+    attributes:
+      label: 需要谁做什么
+      description: 要谁批什么、给什么账号、开什么权限
+      placeholder: 例：需要队长批准新增依赖 funasr 与 modelscope。
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: 临时绕行方案
+      description: 在等授权期间你打算怎么继续（没有就写"无法绕行"）
+      placeholder: 例：先用 test_audio.py 里的假转写结果，把下游逻辑写完。
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: 影响哪个里程碑
+      options:
+        - 第 2 周：三条命令全绿
+        - 第 4 周：核心链路跑通
+        - 第 6 周：指标自证
+        - 第 8 周：演示视频
+        - 不影响里程碑，只是难受
+    validations:
+      required: true

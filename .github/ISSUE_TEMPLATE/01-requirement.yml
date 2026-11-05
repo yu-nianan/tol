@@ -1,0 +1,56 @@
+name: 需求
+description: 要加功能、要改文档、要新素材 —— 只写需要队长拍板或给资源的事
+title: "[需求] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        写完请确认：这件事**不需要你自己动手就能推进**吗？如果不需要队长拍板或给资源，
+        请改写进 `docs/reports/`（任务回执），不要开 Issue。
+
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景
+      description: 为什么现在需要它？不做会卡住什么？
+      placeholder: 例：第 4 周要联调，但缺少 100 条评测集，评估报告算不出 F1。
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+      description: 你想要什么，写成一句话能验收的样子
+      placeholder: 例：拿到 100 条标注好的评测集（50 诈骗 / 50 正常），放在 data/eval/。
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 怎么算完成？写可检查的条件
+      placeholder: 例：`python scripts/eval.py` 能跑出 precision / recall / F1 三个数。
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 优先级
+      options:
+        - 阻断（不做就停）
+        - 影响指标（可以晚，但影响分数）
+        - 锦上添花
+    validations:
+      required: true
+
+  - type: input
+    id: deadline
+    attributes:
+      label: 期望完成时间
+      description: 填日期或"本周内"，别写"尽快"
+      placeholder: 2026-11-10
+    validations:
+      required: true

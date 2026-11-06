@@ -7,6 +7,9 @@ related_code: frontend, app/api/web.py
 summary: 在 frontend/ 下做三屏页面，后端已支持优先返回它；无构建、无 CDN、手机可读
 audience: agent
 depends_on: [../INDEX.md, ../需求清单.md]
+covers: [FR-3.1, FR-3.2, FR-3.7]
+supports: [FR-3.3, FR-3.4]
+depends_on_task: []
 ---
 
 # 任务单：把演示页从"一屏"扩成"三屏"

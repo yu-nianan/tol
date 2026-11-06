@@ -10,9 +10,10 @@
 
 1. 本文件（你已经在这）
 2. `docs/INDEX.md` —— 找到「你负责的模块」那一行
-3. `docs/tickets/<你的任务单>.md` —— 你这次只做这一件事
-4. `OWNERS.md` —— 你被允许改哪些目录
-5. `app/schemas/*.py` —— 模块之间唯一合法的交接格式
+3. `docs/任务地图.md` 的 §3 —— 只读你那一行 + 前置任务，别读全文
+4. `docs/tickets/<你的任务单>.md` —— 你这次只做这一件事
+5. `OWNERS.md` —— 你被允许改哪些目录
+6. `app/schemas/*.py` —— 模块之间唯一合法的交接格式
 
 **读取上限：一次不超过 3 份文档、总量不超过 600 行。**
 超了说明任务切得太大，先找队长拆任务，不要硬读。
@@ -40,7 +41,9 @@ tests/                  # pytest，按模块建子目录
 data/                   # 测试素材（不入库，见 .gitignore）
 docs/
   INDEX.md              # ★ 自动生成，禁止手改
-  需求清单.md            # 需求基线（28 FR / 10 NFR / 11 交付物）
+  任务地图.md            # 谁的活先做、谁在等谁、交接与验收怎么算
+  需求覆盖表.md          # ★ 自动生成：每条需求由哪张任务单负责
+  需求清单.md            # 需求基线（29 FR / 11 NFR / 11 交付物）
   技术学习路线.md         # 学什么、按什么顺序学
   测试方案.md            # 用例与指标口径
   modules/              # 每个模块一份说明（新增文档放这里）
@@ -112,7 +115,7 @@ CODEOWNERS 目前只用于指派 reviewer，**没有**开启"必须 code owner �
 python scripts/docs.py check
 ```
 
-它检查六件事，任何一件不合规都会红：
+它检查七件事，任何一件不合规都会红：
 
 | 检查 | 说明 | 能自动修 |
 | --- | --- | --- |
@@ -122,6 +125,7 @@ python scripts/docs.py check
 | 死链 | 正文 `[文字](相对路径)` 与 front-matter `depends_on` 指向的文件都必须存在 | ❌ |
 | 合规 | 密钥、真实手机号/身份证、竞赛匿名词 | ❌ 人工改 |
 | 回执完整 | `docs/reports/` 里必须有四节：做了什么 / 没做完 / 下次接手 / 怎么验收 | ✅ 补空节 |
+| 需求覆盖 | 任务单 `covers` / `supports` 里的编号必须在 `docs/需求清单.md` 里存在；一条需求只能有一个主责；`docs/需求覆盖表.md` 必须与任务单同步 | ✅ 重跑 `matrix` |
 
 **`owner` 永远填人（代号），不填工具。** 你用的 agent 叫什么不重要，署名必须是负责的人；
 要记录工具，写在回执正文的「工具：」一行里。
@@ -129,9 +133,13 @@ python scripts/docs.py check
 卡住就按提示修，或跑一次：
 
 ```powershell
-python scripts/docs.py fix      # 补 front-matter、补小节、重建 INDEX
+python scripts/docs.py fix      # 补 front-matter、补小节、重建 INDEX 与需求覆盖表
 python scripts/docs.py index    # 只重建索引
+python scripts/docs.py matrix   # 只重建需求覆盖表（改了任务单 covers 之后跑这个）
 ```
+
+**改了任务单的 `covers` / `supports`，必须重跑 `matrix` 并一起提交**，否则 `check` 会红。
+任务单与需求的对应关系、谁先做谁后做，都写在 `docs/任务地图.md` 里。
 
 ---
 

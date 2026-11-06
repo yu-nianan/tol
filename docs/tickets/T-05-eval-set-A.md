@@ -7,6 +7,9 @@ related_code: app/kb, app/pipelines/knowledge, tests/eval
 summary: 造出可量测的 40 条黑白 1:1 测评集，并用脚本算出 P/R/F1/准确率
 audience: agent
 depends_on: [../INDEX.md, ../测试方案.md, ../需求清单.md]
+covers: [FR-5.2, NFR-4, NFR-5, NFR-11]
+supports: [FR-5.3]
+depends_on_task: []
 ---
 
 # 任务单：测评集 + 量测脚本（"90% 怎么算"的答案就在这里）

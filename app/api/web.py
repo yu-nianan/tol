@@ -132,6 +132,7 @@ async function report() {
 
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/demo", response_class=HTMLResponse, include_in_schema=False)
 def index() -> str:
     """优先返回 frontend/index.html（负责人 D 的页面）；没有就用内置的兜底页。
 

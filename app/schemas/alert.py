@@ -80,10 +80,6 @@ class Decision(BaseModel):
     reasons: list[str] = Field(default_factory=list)
     cap_applied: bool = False
     need_human: bool = False
-    # 阶段序号 0=未命中剧本，1..4=接触/立威/隔离/诱导转账（T-07）
-    stage_index: int = Field(0, ge=0, le=4)
-    # 本次判定引用的历史案例 id（T-08）；无引用时为空
-    cited_case_ids: list[str] = Field(default_factory=list)
 
     @property
     def level_label(self) -> str:

@@ -146,6 +146,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1 -Task all
 因此「本地四条命令全绿」和「PR 能合」是同一件事，不要指望有人点 Approve。
 CODEOWNERS 目前只用于指派 reviewer，**没有**开启"必须 code owner 批准"。
 
+**用 `gh` 提 PR / 看检查 / 合并的固定写法（路径写死，别靠 PATH）**
+
+```powershell
+$gh = 'C:\Users\Lenovo\.local\gh\bin\gh.exe'   # 本机实际位置；PATH 里通常没有
+& $gh pr create --base main --head <分支名> --title "<标题>" --body-file <正文文件>
+& $gh pr checks <编号> --watch                  # 等两个检查跑完
+& $gh pr merge <编号> --squash                  # 全绿后再合
+```
+
+为什么写绝对路径：装完 `gh` 后 `where gh` / `Get-Command gh` 常常仍然找不到——终端与 DSH 会话的 PATH 在进程启动那一刻就固化了，新装的目录不会自己进来。
+同理，**新开一个会话或切了分支，先确认自己在哪**：
+
+```powershell
+git branch --show-current
+git status --short
+```
+
+换分支前先 `git fetch origin`；PR 被 squash 合并后，本地 `main` 会落后一个提交，用 `git pull --ff-only` 对齐，
+不要在旧分支上接着写（否则下次 PR 会带上一堆“看起来像新改动、其实是历史”的 diff）。
+
 ---
 
 ## 4. 第四条命令：文档门禁

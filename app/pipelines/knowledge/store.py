@@ -14,15 +14,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.core.logging import get_logger
-from app.pipelines.knowledge.hybrid import (
-    SOURCE_BM25,
-    SOURCE_FUSED,
-    SOURCE_NGRAM,
-    NGramIndex,
-    expand_synonyms,
-    load_synonyms,
-    rrf_fuse,
-)
 from app.pipelines.text.normalize import tokenize
 from app.schemas import ScriptHit
 
@@ -108,24 +99,13 @@ class KnowledgeBase:
         self.scripts: list[Script] = []
         self.cases: list[Case] = []
         self.case_index: BM25 | None = None
-        self.ngram_index: NGramIndex | None = None
-        self.synonyms: list[tuple[str, ...]] = []
         self.reload()
 
     def reload(self) -> None:
         self.scripts = self._load_scripts()
         self.cases = self._load_cases()
-        self.synonyms = load_synonyms(self.kb_dir / "synonyms.json")
-        self._rebuild_indexes()
+        self.case_index = BM25([tokenize(case.text) for case in self.cases]) if self.cases else None
         log.info("知识库已加载 scripts=%s cases=%s", len(self.scripts), len(self.cases))
-
-    def _rebuild_indexes(self) -> None:
-        if not self.cases:
-            self.case_index = None
-            self.ngram_index = None
-            return
-        self.case_index = BM25([tokenize(case.text) for case in self.cases])
-        self.ngram_index = NGramIndex([case.text for case in self.cases])
 
     def _load_scripts(self) -> list[Script]:
         payload = _load_json(self.kb_dir / "scripts.json")
@@ -201,50 +181,22 @@ class KnowledgeBase:
                     best = candidate
         return best
 
-    def search_cases(self, text: str, top_k: int = 2) -> list[tuple[Case, float, str]]:
-        """混合检索：BM25 与字符 2-gram 两路各取 top8，RRF 融合后取 top_k。
-
-        返回 ``(案例, 相似度, 召回来源)``；来源 ∈ ``bm25 / ngram / fused``。
-        相似度仍是"查询词被案例覆盖的比例"（0–1），同义词只扩展召回、不参与打分，
-        避免 RRF 原始分（约 0.01 量级）被下游 ``< 0.2`` 门禁误杀。
-        """
-        if not self.cases or self.case_index is None or self.ngram_index is None:
+    def search_cases(self, text: str, top_k: int = 2) -> list[tuple[Case, float]]:
+        """返回 (案例, 相似度)。相似度用"查询词被案例覆盖的比例"，好解释、范围固定 0–1。"""
+        if not self.case_index or not self.cases:
             return []
         query = tokenize(text)
-        extras = expand_synonyms(text, self.synonyms)
-        extra_tokens = [token for phrase in extras for token in tokenize(phrase)]
-        query_terms = list(dict.fromkeys([*query, *extra_tokens]))
-        if not query_terms:
+        if not query:
             return []
-
-        bm25_hits = self.case_index.search(query_terms, top_k=8)
-        ngram_hits = self.ngram_index.search(text, extras=extras, top_k=8)
-        rankings = [[index for index, _ in bm25_hits], [index for index, _ in ngram_hits]]
-        tags: dict[int, set[str]] = {}
-        for index in rankings[0]:
-            tags.setdefault(index, set()).add(SOURCE_BM25)
-        for index in rankings[1]:
-            tags.setdefault(index, set()).add(SOURCE_NGRAM)
-
-        # 打分只看多字词：单字（我/了/的）几乎每个案例都含，参与覆盖度会把
-        # 「只碰巧共享几个常用字」的无关文本抬过 0.2 门禁（T-05 白样本误报的两条即如此）。
-        # 同义词只扩展召回，但命中同义词组里的词仍计入分子，保证「验资 → 资金审查」可得分。
-        meaningful = {term for term in query_terms if len(term) > 1}
-        results: list[tuple[Case, float, str]] = []
-        for index, _rrf in rrf_fuse(rankings):
+        query_terms = set(query)
+        results: list[tuple[Case, float]] = []
+        for index, _score in self.case_index.search(query, top_k=top_k):
             case = self.cases[index]
             case_terms = set(tokenize(case.text))
-            matched = meaningful & case_terms
-            if not matched:
+            overlap = len(query_terms & case_terms) / max(len(query_terms), 1)
+            if overlap <= 0:
                 continue
-            coverage = len(matched) / max(len(meaningful), 1)
-            if coverage <= 0:
-                continue
-            sources = tags.get(index, set())
-            source = SOURCE_FUSED if len(sources) >= 2 else next(iter(sources), SOURCE_BM25)
-            results.append((case, round(min(coverage, 1.0), 3), source))
-            if len(results) >= top_k:
-                break
+            results.append((case, round(min(overlap, 1.0), 3)))
         return results
 
     def add_case(self, case: Case) -> bool:
@@ -252,5 +204,5 @@ class KnowledgeBase:
         if any(existing.id == case.id for existing in self.cases):
             return False
         self.cases.append(case)
-        self._rebuild_indexes()
+        self.case_index = BM25([tokenize(c.text) for c in self.cases])
         return True

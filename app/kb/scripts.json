@@ -77,7 +77,7 @@
       ],
       "stages": [
         { "name": "ad", "label": "广告引流", "weight": 0.3, "signals": ["无抵押", "秒批", "低息"] },
-        { "name": "apply", "label": "申请环节", "weight": 0.5, "signals": ["额度", "流水包装", "放款"] },
+        { "name": "apply", "label": "申请环节", "weight": 0.5, "signals": ["额度", "流水包装"] },
         { "name": "fee", "label": "收取费用", "weight": 0.7, "signals": ["手续费", "解冻费", "保证金"] },
         { "name": "trap", "label": "连环收费", "weight": 0.9, "signals": ["转账", "逾期", "征信"] }
       ]
@@ -117,7 +117,7 @@
     {
       "id": "S08",
       "name": "虚假中奖与快递理赔",
-      "risk_base": 80,
+      "risk_base": 75,
       "advice": [
         "先交手续费、保证金的中奖都是假的",
         "快递理赔只在官方 APP 内操作",
@@ -127,13 +127,13 @@
         { "name": "notice", "label": "通知中奖", "weight": 0.3, "signals": ["中奖", "抽奖", "礼品"] },
         { "name": "claim", "label": "领奖环节", "weight": 0.5, "signals": ["领奖", "填写信息", "快递理赔"] },
         { "name": "fee", "label": "收取费用", "weight": 0.7, "signals": ["手续费", "保证金", "税费"] },
-        { "name": "trap", "label": "骗取验证码", "weight": 0.9, "signals": ["转账", "验证码", "解冻"] }
+        { "name": "trap", "label": "骗取验证码", "weight": 0.9, "signals": ["转账", "验证码"] }
       ]
     },
     {
       "id": "S09",
       "name": "校园贷与助学金骗局",
-      "risk_base": 80,
+      "risk_base": 78,
       "advice": [
         "助学金、奖学金发放不需要交任何费用",
         "校园贷一律不碰，遇到催收立即告诉辅导员",
@@ -160,86 +160,6 @@
         { "name": "task", "label": "派任务", "weight": 0.5, "signals": ["USDT", "刷流水", "走账"] },
         { "name": "pay", "label": "收押金", "weight": 0.7, "signals": ["押金", "保证金", "链接"] },
         { "name": "trap", "label": "资金被冻", "weight": 0.9, "signals": ["冻结", "洗钱", "止付"] }
-      ]
-    },
-    {
-      "id": "S11",
-      "name": "快递丢件理赔",
-      "risk_base": 86,
-      "advice": [
-        "快递理赔只走官方 APP，不要加私人微信",
-        "任何人索要验证码、银行卡号都是诈骗",
-        "挂断后自己拨打快递公司官方客服核实"
-      ],
-      "stages": [
-        { "name": "contact", "label": "接触", "weight": 0.3, "signals": ["快递丢失", "快递丢件", "包裹丢失", "物流停住"] },
-        { "name": "authority", "label": "冒充客服", "weight": 0.55, "signals": ["理赔专员", "官方赔付", "系统显示", "订单编号"] },
-        { "name": "isolate", "label": "引导私下操作", "weight": 0.75, "signals": ["加微信", "私下处理", "屏幕共享", "不用找平台"] },
-        { "name": "transfer", "label": "诱导转账", "weight": 0.95, "signals": ["双倍赔付", "验资", "验证码", "退款链接", "转账"] }
-      ]
-    },
-    {
-      "id": "S12",
-      "name": "虚假投资平台（外汇/期货）",
-      "risk_base": 93,
-      "advice": [
-        "未持牌的外汇、期货平台一律不投，先在监管官网查资质",
-        "出金受阻、要求补仓或交保证金，是典型黑平台信号",
-        "不要相信任何“内部消息”和“稳赚”承诺"
-      ],
-      "stages": [
-        { "name": "contact", "label": "接触", "weight": 0.3, "signals": ["外汇", "期货", "黄金", "原油"] },
-        { "name": "authority", "label": "建立信任", "weight": 0.55, "signals": ["分析师", "喊单", "盈利截图", "内部消息"] },
-        { "name": "isolate", "label": "拉入私域", "weight": 0.75, "signals": ["VIP群", "一对一指导", "保密操作", "不要告诉家人"] },
-        { "name": "transfer", "label": "诱导入金", "weight": 0.95, "signals": ["入金", "出金失败", "补仓", "保证金", "平台维护"] }
-      ]
-    },
-    {
-      "id": "S13",
-      "name": "冒充熟人（AI 语音/视频）",
-      "risk_base": 83,
-      "advice": [
-        "听到“是我”“换号了”先挂断，用原号码回拨核实",
-        "视频里的人也可能是 AI 换脸，涉及转账必须当面或原号确认",
-        "不要因为对方发来语音、视频就放松警惕"
-      ],
-      "stages": [
-        { "name": "contact", "label": "接触", "weight": 0.3, "signals": ["我是你儿子", "我是你女儿", "老同学", "声音"] },
-        { "name": "authority", "label": "冒充身份", "weight": 0.55, "signals": ["视频通话", "AI换脸", "合成语音", "新号码"] },
-        { "name": "isolate", "label": "制造紧急", "weight": 0.75, "signals": ["不方便接电话", "别打这个号", "先别告诉别人", "信号不好"] },
-        { "name": "transfer", "label": "要求转账", "weight": 0.95, "signals": ["借钱", "急用", "转点钱", "打款", "转账"] }
-      ]
-    },
-    {
-      "id": "S14",
-      "name": "虚假招聘（打字员/配音员）",
-      "risk_base": 82,
-      "advice": [
-        "正规招聘不会先收押金、培训费、会员费",
-        "在家办公、日结高薪、无需经验同时出现，基本是骗局",
-        "要求先做任务充值才能提现，立即停止并报警"
-      ],
-      "stages": [
-        { "name": "contact", "label": "招募", "weight": 0.3, "signals": ["招聘", "在家办公", "打字员", "配音员", "试玩"] },
-        { "name": "authority", "label": "承诺收益", "weight": 0.55, "signals": ["日结", "高薪", "轻松", "无需经验"] },
-        { "name": "isolate", "label": "收取费用", "weight": 0.75, "signals": ["押金", "培训费", "会员费", "服装费"] },
-        { "name": "transfer", "label": "套牢", "weight": 0.95, "signals": ["任务未完成", "继续充值", "不能提现", "连环任务"] }
-      ]
-    },
-    {
-      "id": "S15",
-      "name": "短信钓鱼链接（ETC/违章/医保）",
-      "risk_base": 80,
-      "advice": [
-        "官方短信不会让你点陌生链接重新认证",
-        "ETC、违章、社保业务只通过官方 APP 或窗口办理",
-        "链接里索要银行卡号、验证码的一律是诈骗"
-      ],
-      "stages": [
-        { "name": "contact", "label": "接触", "weight": 0.3, "signals": ["ETC", "违章", "社保", "医保"] },
-        { "name": "authority", "label": "制造异常", "weight": 0.55, "signals": ["失效", "已停用", "账户异常", "认证过期"] },
-        { "name": "isolate", "label": "限时施压", "weight": 0.75, "signals": ["点击链接", "限时处理", "24小时", "自行承担"] },
-        { "name": "transfer", "label": "诱导认证", "weight": 0.95, "signals": ["重新认证", "补缴", "绑定银行卡", "输入验证码", "缴纳"] }
       ]
     }
   ]

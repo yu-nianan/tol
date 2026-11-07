@@ -8,7 +8,7 @@
 
 ## 0. 开工前按这个顺序读（不要多读）
 
-1. 本文件（你已经在这）
+1. 本文件（你已经在这）——**§1.1 技术栈与版本、§1.2 命名约定、§1.3 架构决策**，三条各扫一眼就够
 2. `docs/INDEX.md` —— 找到「你负责的模块」那一行
 3. `docs/任务地图.md` 的 §3 —— 只读你那一行 + 前置任务，别读全文
 4. `docs/tickets/<你的任务单>.md` —— 你这次只做这一件事
@@ -57,6 +57,45 @@ scripts/
   smoke.py              # 冒烟脚本
 docker/                 # compose 与 Dockerfile
 ```
+
+### 1.1 技术栈与版本（依据：`pyproject.toml` + `requirements.txt`，只有队长能改这张表）
+
+| 层 | 选型 | 版本 | 硬约束 |
+|---|---|---|---|
+| 语言 | Python | ≥3.10（本机 3.12，CI 3.11） | 不许用 3.11 才有的东西：`StrEnum`、`datetime.UTC`、`typing.Self`（要就用 `typing_extensions`） |
+| Web | FastAPI + uvicorn | fastapi≥0.110，uvicorn[standard]≥0.27 | 加路由只能 `include_router`，不改 `app/main.py` |
+| 校验 | Pydantic **v2** | ≥2.5 | 只用 v2 写法：`model_dump()` / `field_validator`；**禁止** `.dict()`、`@validator`、`class Config` |
+| HTTP | httpx | ≥0.27 | 只用于测试与调外部 API |
+| 测试 | pytest | ≥8.0 | 插件（asyncio 等）同样走申请制 |
+| 检查 | ruff | ≥0.6（本机 0.17.3） | 配置写死在 `pyproject.toml`：line-length 110、target py310、`select E,F,I,UP,B`、`ignore E501,B008` |
+| 存储 | SQLite（标准库 `sqlite3`）+ JSON | — | 不引入 ORM，不引入数据库服务 |
+| 检索 | 纯 Python | — | 不引入 jieba / faiss / numpy / scikit-learn |
+| 模型 | 外部 HTTP API（LLM / ASR / OCR） | — | 不进 `requirements.txt`；**没配就返回“未启用”，不许编结果** |
+| 前端 | 单文件 HTML + 原生 JS | — | 无构建、无 CDN（内网演示也要能跑） |
+
+要加依赖：开 Issue（`依赖申请`），写“包名 / 用途 / 不装的替代方案”，队长批了再改 `requirements.txt`。
+
+### 1.2 命名约定
+
+- **目录与文件**：`app/pipelines/<域>/<功能>.py`，域只限 `text / audio / vision / decision / knowledge / notify`；一个文件一件事（`normalize.py` 只清洗，`rules.py` 只出证据）。
+- **模块对外函数**：每个模块只暴露 1–3 个**动词**函数（`extract` / `transcribe` / `evaluate` / `build_report` / `notify_guardian`）；`_` 开头是内部实现，跨模块不许调。
+- **契约类型**：只定义在 `app/schemas/`；字段 **snake_case 全拼**（`script_id`，不写 `sid`）；字段名与类型**冻结**，要改走第 13 节。
+- **枚举值**：小写字符串，或 `"L0".."L3"` 这类短码；**不许中文枚举值**。
+- **接口路径**：业务接口 `/api/v1/<资源>`（复数、全小写）；健康检查 `/health`；演示页 `/demo`。
+- **错误**：统一 `{"error": {"code": "...", "message": "..."}}`，`code` 用**小写下划线**（`bad_request` / `internal_error`）；前端与脚本按 `code` 分支，不匹配文案。
+- **测试**：文件 `tests/test_<模块>_<行为>.py`，函数 `test_<行为>_<期望>`（例：`test_scoring_empty_evidence_returns_l0`）。
+- 分支、提交前缀、文档命名、任务单命名、人物代号：见 §10 与 §7，这里不重复。
+
+### 1.3 关键架构决策（只放结论，细节读 ADR）
+
+| ADR | 一句话结论 | 什么情况下才推翻 |
+|---|---|---|
+| ADR-0001 | 用 FastAPI 起 HTTP 服务，不用 Flask / Django / 单脚本 CLI | 需要前端同构或长期长连接时 |
+| ADR-0002 | 模块之间**只**传 `app/schemas` 里的 `Evidence / Decision / Alert / Report`，不传裸 dict | 出现跨模块高频二进制流（如原始音频）时 |
+| ADR-0003 | 验收只认四条命令（lint / test / smoke / 文档门禁），不认人工评审 | CI 超过 5 分钟，或 smoke 慢到没人愿意跑 |
+| ADR-0004 | 现在**不做**模块边界重构，只记录触发条件（“改 A 断 B”出现两次） | 症状出现后做“包入口 + 架构测试”，约 40 行 |
+
+新决策：新建 `docs/decisions/ADR-000N-<短名>.md`（照 `_模板` 的 front-matter），并在这张表加一行。**ADR 只追加，不改写。**
 
 ---
 
@@ -149,7 +188,7 @@ python scripts/docs.py matrix   # 只重建需求覆盖表（改了任务单 cov
 2. **不许提交密钥、token、真实手机号、真实人名、真实身份证。** 示例数据一律用 `138****0000`、`张*`。
 3. **不许用硬编码结果"通过测试"。** 不许 `return {"score": 90}`；不许把真实模型调用注释掉再返回假数据。演示用的假数据必须放在 `data/` 并在 PR 里写明"此处为演示数据"。
 4. **不许改契约字段名或类型。** 缺字段就提 issue，不要自己加。
-5. **不许跨模块 import 内部实现。** 只能 `from app.schemas import ...` 或调用对方模块暴露的 `run()`。
+5. **不许跨模块 import 内部实现。** 只能 `from app.schemas import ...`，或调用对方模块对外暴露的那 1–3 个动词函数（`extract` / `transcribe` / `evaluate` / `build_report` 等，见 §1.2）；不许碰 `_` 开头的内部函数。
 6. **不许为了让测试通过而改测试断言**；不许 `try/except: pass` 吞异常。
 7. **不许 `git push --force`、不许直接推 `main`。**
 8. **不许手改 `docs/INDEX.md`**；不许在文档里编造没写过的项目背景。

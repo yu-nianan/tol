@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/v1", tags=["alerts"])
 @router.get("/alerts/{alert_id}", response_model=Alert, summary="查询告警")
 def get_alert(alert_id: str) -> Alert:
     engine = get_engine()
-    alert = engine.alerts.get(alert_id)
+    alert = engine.get_alert(alert_id)
     if alert is None:
         raise AppError("告警不存在", code="alert_not_found", status=404)
     return alert

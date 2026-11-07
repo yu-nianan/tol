@@ -17,6 +17,7 @@ from app.pipelines.decision.scoring import evaluate
 from app.pipelines.knowledge.store import Case, KnowledgeBase
 from app.pipelines.notify.guardian import notify_guardian
 from app.pipelines.notify.report_builder import build_report
+from app.pipelines.storage import get_storage
 from app.pipelines.text import rules
 from app.pipelines.text.normalize import mask_sensitive, normalize
 from app.schemas import Alert, AlertStatus, Decision, Evidence, Level, Report, SourceKind, level_for
@@ -45,6 +46,8 @@ class SessionState:
 class DetectionEngine:
     def __init__(self, kb: KnowledgeBase) -> None:
         self.kb = kb
+        self.db = get_storage()
+        # 内存只做"热缓存"，真相在 SQLite：进程重启后仍能读回上一次会话
         self.sessions: dict[str, SessionState] = {}
         self.alerts: dict[str, Alert] = {}
 
@@ -52,11 +55,42 @@ class DetectionEngine:
     def _state(self, session_id: str, role: str) -> SessionState:
         state = self.sessions.get(session_id)
         if state is None:
-            state = SessionState(session_id=session_id, role=role)
+            state = self._hydrate(session_id) or SessionState(session_id=session_id, role=role)
             self.sessions[session_id] = state
         if role:
             state.role = role
         return state
+
+    def _hydrate(self, session_id: str) -> SessionState | None:
+        record = self.db.load_session(session_id)
+        if record is None:
+            return None
+        return SessionState(
+            session_id=record.session_id,
+            role=record.role,
+            turns=record.turns,
+            texts=list(record.texts),
+            evidence=[Evidence(**item) for item in record.evidence],
+            notifications=list(record.notifications),
+            last_decision=Decision(**record.last_decision) if record.last_decision else None,
+        )
+
+    def _persist(self, state: SessionState, text: str, decision: Decision) -> None:
+        self.db.save_session(
+            state.session_id,
+            role=state.role,
+            turns=state.turns,
+            texts=state.texts,
+            evidence=[item.model_dump() for item in state.evidence],
+            notifications=state.notifications,
+            last_decision=decision.model_dump() if state.last_decision else None,
+        )
+        self.db.append_message(
+            state.session_id,
+            text=text,
+            level=int(decision.level),
+            score=decision.score,
+        )
 
     # ---------- 主流程 ----------
     def detect_text(self, text: str, session_id: str = "default", role: str = "normal"):
@@ -100,6 +134,7 @@ class DetectionEngine:
         state.texts.append(masked)
         state.evidence.extend(evidence)
         state.last_decision = decision
+        self._persist(state, masked, decision)
 
         alert: Alert | None = None
         if level >= Level.L1:
@@ -132,23 +167,29 @@ class DetectionEngine:
             actions=LEVEL_ACTIONS[decision.level],
         )
         self.alerts[alert.id] = alert
+        self.db.save_alert(alert)
         return alert
 
     # ---------- 干预 / 报告 ----------
-    def ack_alert(self, alert_id: str, action: str, note: str = "") -> Alert:
+    def get_alert(self, alert_id: str) -> Alert | None:
         alert = self.alerts.get(alert_id)
         if alert is None:
-            raise KeyError(alert_id)
-        if action == "dismiss":
-            alert.status = AlertStatus.DISMISSED
-        else:
-            alert.status = AlertStatus.ACKED
-        if note:
-            alert.actions = [*alert.actions, f"备注：{note}"]
+            alert = self.db.get_alert(alert_id)
+            if alert is not None:
+                self.alerts[alert_id] = alert
         return alert
 
+    def ack_alert(self, alert_id: str, action: str, note: str = "") -> Alert:
+        alert = self.get_alert(alert_id)
+        if alert is None:
+            raise KeyError(alert_id)
+        status = AlertStatus.DISMISSED if action == "dismiss" else AlertStatus.ACKED
+        stored = self.db.update_alert_status(alert_id, status, note) or alert
+        self.alerts[alert_id] = stored
+        return stored
+
     def build_report(self, session_id: str) -> Report:
-        state = self.sessions.get(session_id)
+        state = self.sessions.get(session_id) or self._hydrate(session_id)
         if state is None or state.last_decision is None:
             raise KeyError(session_id)
         return build_report(
@@ -175,11 +216,7 @@ class DetectionEngine:
 
     # ---------- 概览 ----------
     def stats(self) -> dict[str, object]:
-        return {
-            "sessions": len(self.sessions),
-            "alerts": len(self.alerts),
-            "open_alerts": sum(1 for a in self.alerts.values() if a.status == AlertStatus.OPEN),
-        }
+        return self.db.stats()
 
 
 @lru_cache(maxsize=1)

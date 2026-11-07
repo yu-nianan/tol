@@ -23,6 +23,8 @@ class SourceKind(str, Enum):
     CASE = "case"          # 知识库案例召回
     SCRIPT = "script"      # 剧本阶段命中
     PROFILE = "profile"    # 画像（年龄/职业）
+    CONTEXT = "context"    # 会话上下文摘要（多轮记忆）
+    CROSS_MODAL = "cross_modal"  # 跨模态矛盾（合成音 / 模板偏离 / 号码冲突）
 
 
 class Evidence(BaseModel):

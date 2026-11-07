@@ -38,11 +38,11 @@ class ModelConfig:
     model: str
     timeout: float = 6.0
 
-def load_config() -> ModelConfig | None:      # 缺 base_url 或 api_key → None（不抛）
+def load_config() -> ModelConfig | None:      # 缺 base_url/api_key/model 任一 → None（不抛）
     ...
 
-def extract_evidence(text: str, script_hits: list[ScriptHit]) -> list[Evidence]:
-    """调模型，返回 kind=EvidenceKind.MODEL 的证据；任何失败都返回 []，不抛。"""
+def extract_evidence(text: str, hints: list[str] | None = None) -> list[Evidence]:
+    """调模型，返回 kind=SourceKind.MODEL 的证据；任何失败都返回 []，不抛。"""
 ```
 
 2. 只用**标准库**（`urllib.request` + `json`），打 `POST {base_url}/chat/completions`，
@@ -113,7 +113,18 @@ python scripts/docs.py check
 | 截止 | 周三晚 22:00 |
 | 卡住找谁 | 自己 |
 
-## 8. 交付时会问的三个问题（提前想好）
+## 8. 交付结果（2026-11-07 队长补记）
+
+- 实际交付：`app/pipelines/text/llm.py` + `app/pipelines/text/prompts/evidence_v1.md` + `tests/text/test_llm.py`（7 条全离线）。
+- 与初稿的差异（都在回执里说明）：① `extract_evidence` 第二参数改成 `hints: list[str] | None`（只传阶段提示，不传整个
+  `ScriptHit`，避免模型接口与知识库对象耦合）；② code 词表 11 条（比初稿多 `brushing`），与 `rules.py` 的 code 对齐；
+  ③ `load_config` 要求 base_url/api_key/model 三者齐全，任一缺失返回 None（更保守，防止拿空 model 名发请求）。
+- 单测覆盖：未配置不发请求 / 正常 JSON 解析与权重上限 0.8 / 忽略模型返回的 score、level / 丢弃自造 code /
+  坏 JSON 返回 [] / 网络错误返回 [] / `load_config` 缺 env 返回 None。
+- 未做：真实 key 的联调（本机与 CI 都没有 key），所以 §6 的三条人工项仍未勾选——按"未配置就静默降级"的约定，
+  这部分在演示当天用真实 key 补，回执「没做完」里如实写了。
+
+## 9. 交付时会问的三个问题（提前想好）
 
 1. 模型给了分数你不用，为什么？如果评委问"大模型到底起了什么作用"，你怎么演示？
 2. 6 秒超时怎么定的？网上慢的时候用户看到什么？

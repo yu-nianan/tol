@@ -89,9 +89,22 @@ python scripts/docs.py check
 
 附加验收（人工看一眼）：
 
-- [ ] 贴出 `pytest tests/eval -q -s` 的完整输出（含混淆矩阵四个数与 P/R/F1）
-- [ ] 写出"哪一类最容易被漏判"（看 40 条的明细表，按 script_id 归类）
-- [ ] 说明 40 条与 20 条官方集的差别（为什么留 20 条对外）
+- [x] 贴出 `pytest tests/eval -q -s` 的完整输出（含混淆矩阵四个数与 P/R/F1）
+- [x] 写出"哪一类最容易被漏判"（看 40 条的明细表，按 script_id 归类）
+- [x] 说明 40 条与 20 条官方集的差别（为什么留 20 条对外）
+
+**实测（2026-11-07，engine 已修好 `ScriptHit` 导入 + `_match_script` 重写后）**：
+`n=40 tp=20 fp=0 tn=20 fn=0`，`precision=1.000 recall=1.000 f1=1.000 accuracy=1.000`。
+20 条黑样本全部判 L2（score 61.5–78.8），20 条白样本全部 ≤L1（5 条日常话 L1≈55，最高 57.5，
+距 L2 门槛 60 余量 4 分）。
+
+**最容易被漏判**：`E016`「我是派出所的，有个案子需要你配合调查，不要挂断」（61.5）、
+`E007`「我是王总，换号了」（62.8）、`E020`（65.3）——共同点是只出现 1 个身份类信号、
+没有转账/验证码等强动作，靠相似案例和会话上下文才勉强过 L2。
+
+**Caveat**：40 条为本任务自拟/改编，黑样本信号与 `scripts.json` 有重合，属于"自己出题自己考"；
+1.000 是理想上界，换成真实转写文本（错字、口语、方言、上下文缺失）会掉。第 5 周用真实样本复测，
+不要把这个数当对外承诺。
 
 ## 7. 预计与截止
 
@@ -111,8 +124,8 @@ python scripts/docs.py check
 ## 9. 完成记录（智能体填）
 
 ```
-做了什么：<一句话>
-验收命令：scripts/check.ps1 -Task all  +  python scripts/docs.py check
-结果：<全绿 / 哪条红，红在哪；贴 P/R/F1>
+做了什么：40 条黑白 1:1 测评集（E001–E040，覆盖 S01–S15）+ 20 条官方集 + evalcheck.py（load/validate/measure）+ tests/eval 6 条测试
+验收命令：pytest tests/knowledge tests/eval -q  +  ruff check app/kb app/pipelines/knowledge tests/knowledge tests/eval
+结果：全绿；n=40 tp=20 fp=0 tn=20 fn=0，P=R=F1=1.000 accuracy=1.000（自拟样本 caveat 见 §6）
 契约变更：无
 ```

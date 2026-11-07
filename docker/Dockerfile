@@ -11,6 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY scripts ./scripts
+# 演示页由前端负责人 D 维护；web.py 优先读 frontend/index.html，没有才用内置兜底页
+COPY frontend ./frontend
 
 EXPOSE 8000
 

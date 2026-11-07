@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "disclaimer": "本文件是启发式版面锚点，只覆盖少量演示模板；命中只能说明「疑似偏离」，不能证明图片被伪造，也不是官方模板库。",
+  "note": "启发式，疑似，不是深度伪造检测器",
+  "position_tolerance": 0.12,
+  "amount_hints": ["¥", "￥", "元", "人民币", "CNY"],
+  "templates": [
+    {
+      "id": "bank_transfer",
+      "label": "银行/支付转账页",
+      "anchors": [
+        {"text": "转账金额", "weight": 0.2, "position": [0.02, 0.02, 0.98, 0.45]},
+        {"text": "收款人", "weight": 0.2, "position": [0.02, 0.15, 0.98, 0.65]},
+        {"text": "收款账户", "weight": 0.15, "position": [0.02, 0.15, 0.98, 0.65]},
+        {"text": "确认转账", "weight": 0.45, "position": [0.02, 0.72, 0.98, 0.98]}
+      ],
+      "required_any": ["确认转账", "立即转账", "确认付款"]
+    },
+    {
+      "id": "official_notice",
+      "label": "公检法/官方通知页",
+      "anchors": [
+        {"text": "通知", "weight": 0.15, "position": [0.0, 0.0, 1.0, 0.35]},
+        {"text": "案件", "weight": 0.2, "position": [0.0, 0.0, 1.0, 0.6]},
+        {"text": "冻结", "weight": 0.2, "position": [0.0, 0.0, 1.0, 0.8]},
+        {"text": "公章", "weight": 0.2, "position": [0.55, 0.55, 1.0, 1.0]},
+        {"text": "文书编号", "weight": 0.25, "position": [0.0, 0.0, 1.0, 0.5]}
+      ],
+      "required_any": ["通知", "告知书", "文书", "通缉令", "逮捕令"]
+    }
+  ]
+}

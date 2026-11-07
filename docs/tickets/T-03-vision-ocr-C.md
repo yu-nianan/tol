@@ -7,6 +7,9 @@ related_code: app/pipelines/vision, tests/vision
 summary: 把 ocr.py 从"直接抛 501"改成"先校验、再尝试、不行就诚实返回空"
 audience: agent
 depends_on: [../INDEX.md, ../需求清单.md]
+covers: [FR-1.3]
+supports: [FR-2.4b]
+depends_on_task: []
 ---
 
 # 任务单：视觉链路骨架 + 截图文本抽取（可降级）

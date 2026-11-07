@@ -7,6 +7,9 @@ related_code: app/pipelines/audio, tests/audio
 summary: 把 asr.py 从"直接抛异常"改成"能切段、能降级、契约固定"的骨架
 audience: agent
 depends_on: [../INDEX.md, ../需求清单.md]
+covers: [FR-1.2]
+supports: [FR-1.4, FR-2.4b]
+depends_on_task: []
 ---
 
 # 任务单：音频链路打通骨架（wav → 静音切段 → 转写契约 → 证据）

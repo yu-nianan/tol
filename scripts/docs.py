@@ -26,6 +26,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 INDEX = DOCS / "INDEX.md"
+MATRIX = DOCS / "需求覆盖表.md"
+# 生成物：不参与 front-matter 检查，也不进 INDEX 的正文表格（另有"生成的视图"小节指向它们）
+GENERATED = {INDEX.name, MATRIX.name}
 FORBIDDEN_FILE = ROOT / "scripts" / "forbidden_words.txt"
 OWNERS_FILE = ROOT / "scripts" / "owners.txt"
 
@@ -112,7 +115,7 @@ def iter_docs() -> list[Path]:
     if not DOCS.is_dir():
         return []
     return sorted(
-        p for p in DOCS.rglob("*.md") if p.is_file() and p.name != "INDEX.md"
+        p for p in DOCS.rglob("*.md") if p.is_file() and p.name not in GENERATED
     )
 
 
@@ -334,12 +337,251 @@ def build_index() -> str:
             parts.append(f"- [{meta.get('title') or rel}]({rel})")
         parts.append("")
         total += len(others)
+    parts.append("## 生成的视图（不要手改）")
+    parts.append("")
+    parts.append("| 视图 | 生成命令 | 用途 |")
+    parts.append("| --- | --- | --- |")
+    parts.append(
+        "| [需求覆盖表](需求覆盖表.md) | `python scripts/docs.py matrix` "
+        "| 每条需求由哪张任务单负责；没人认领的一眼看到 |"
+    )
+    parts.append("")
     parts.append(f"<!-- 共 {total} 份；模板（下划线或“模板”开头）不计入索引 -->")
     parts.append("")
     return "\n".join(parts)
 
 
+# ---------------------------------------------------------------- 需求覆盖
+
+
+REQ_ID = re.compile(r"^(FR|NFR)-(\d+)(?:\.(\d+))?([a-z]?)$")
+TASK_ID = re.compile(r"^(T-\d+)")
+
+
+def sort_key(rid: str):
+    m = REQ_ID.match(rid)
+    if not m:
+        return (2, 0, 0, rid)
+    head, major, minor, suffix = m.groups()
+    return (0 if head == "FR" else 1, int(major), int(minor or 0), suffix)
+
+
+def load_requirements() -> dict[str, dict[str, str]]:
+    """从 `docs/需求清单.md` 的表格里抽出 {需求ID: {title, priority, group}}。"""
+    path = DOCS / "需求清单.md"
+    if not path.is_file():
+        return {}
+    reqs: dict[str, dict[str, str]] = {}
+    group = ""
+    for raw in read_text(path).splitlines():
+        line = raw.strip()
+        if line.startswith("### "):
+            group = line[4:].strip()
+            continue
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        rid = cells[0].strip("*` ") if cells else ""
+        if not REQ_ID.match(rid):
+            continue
+        title = cells[1] if len(cells) > 1 else ""
+        if rid.startswith("NFR"):
+            # NFR 表是「编号 | 名称 | 目标 | 验证方式」，没有 MoSCoW 优先级
+            reqs[rid] = {
+                "title": re.sub(r"\*\*|`", "", title).strip(),
+                "priority": "—",
+                "group": "非功能需求",
+            }
+            continue
+        reqs[rid] = {
+            "title": re.sub(r"\*\*|`", "", title).strip(),
+            "priority": cells[2] if len(cells) > 2 else "",
+            "group": re.sub(r"^FR-\d+\s*", "", group),
+        }
+    return reqs
+
+
+def load_tickets() -> list[dict]:
+    """读 `docs/tickets/*.md` 的 front-matter：id / owner / covers / supports。"""
+    tickets: list[dict] = []
+    folder = DOCS / "tickets"
+    if not folder.is_dir():
+        return tickets
+    for path in sorted(folder.glob("*.md")):
+        if is_template(path):
+            continue
+        meta, state, _ = read_front_matter(read_text(path))
+        m = TASK_ID.match(path.stem)
+        if not m:
+            continue
+        tickets.append(
+            {
+                "id": m.group(1),
+                "rel": rel_of(path),
+                "owner": meta.get("owner", ""),
+                "status": meta.get("status", ""),
+                "title": re.sub(r"^T-\d+\s*", "", meta.get("title", path.stem)),
+                "depends_on_task": parse_depends_on(meta.get("depends_on_task", "")),
+                "covers": parse_depends_on(meta.get("covers", "")),
+                "supports": parse_depends_on(meta.get("supports", "")),
+            }
+        )
+    return tickets
+
+
+def build_matrix() -> str:
+    reqs = load_requirements()
+    tickets = load_tickets()
+    primary: dict[str, list[str]] = {}
+    support: dict[str, list[str]] = {}
+    for t in tickets:
+        for rid in t["covers"]:
+            primary.setdefault(rid, []).append(t["id"])
+        for rid in t["supports"]:
+            support.setdefault(rid, []).append(t["id"])
+
+    ids = sorted(reqs, key=sort_key)
+    claimed = [rid for rid in ids if rid in primary]
+    uncovered = [rid for rid in ids if rid not in primary]
+    parts = [
+        "# 需求覆盖表",
+        "",
+        "> 本文件由 `python scripts/docs.py matrix` 自动生成，**不要手改**。",
+        "> 数据来源：`docs/需求清单.md`（需求池）+ `docs/tickets/*.md` 的 front-matter。",
+        "> `covers` = 主责（负责验收），`supports` = 支撑（只提供依赖，不负责验收）。",
+        "> 规则：一条需求只能有一个主责任务；出现两个，`check` 会红。",
+        "",
+        "## 汇总",
+        "",
+        f"- 需求 **{len(ids)}** 条：已认领 {len(claimed)} / 未认领 **{len(uncovered)}**",
+        f"- 任务单 **{len(tickets)}** 张",
+        "",
+    ]
+
+    if uncovered:
+        parts += [
+            "## 未认领（需要拆单）",
+            "",
+            "| 需求 | 内容 | 优先级 |",
+            "| --- | --- | --- |",
+        ]
+        for rid in uncovered:
+            meta = reqs[rid]
+            parts.append(f"| {rid} | {meta['title']} | {meta['priority'] or '—'} |")
+        parts.append("")
+
+    parts += [
+        "## 全量矩阵",
+        "",
+        "| 需求 | 内容 | 优先级 | 主责任务 | 支撑任务 |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for rid in ids:
+        meta = reqs[rid]
+        main = "、".join(primary.get(rid, [])) or "**未认领**"
+        sup = "、".join(support.get(rid, [])) or "—"
+        parts.append(f"| {rid} | {meta['title']} | {meta['priority'] or '—'} | {main} | {sup} |")
+    parts.append("")
+
+    parts += [
+        "## 任务视角",
+        "",
+        "| 任务 | 负责人 | 状态 | 前置任务 | 主责需求 |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for t in tickets:
+        deps = "、".join(t["depends_on_task"]) or "—"
+        rows = "、".join(sorted(t["covers"], key=sort_key)) or "—"
+        parts.append(
+            f"| [{t['id']} {t['title']}]({t['rel']}) | {t['owner'] or '—'} "
+            f"| {t['status'] or '—'} | {deps} | {rows} |"
+        )
+    parts.append("")
+    return "\n".join(parts)
+
+
+def matrix_issues() -> list[dict]:
+    """覆盖关系上的问题：编号不存在 / 多主责 / 未认领 / 表与任务单不同步。"""
+    reqs = load_requirements()
+    tickets = load_tickets()
+    if not reqs:
+        return []
+    issues: list[dict] = []
+    primary: dict[str, list[str]] = {}
+    for t in tickets:
+        for rid in t["covers"] + t["supports"]:
+            if rid not in reqs:
+                issues.append(
+                    {
+                        "path": t["rel"],
+                        "line": 1,
+                        "level": "block",
+                        "msg": f"front-matter 里的 {rid} 在需求清单中不存在（核对编号）",
+                    }
+                )
+        if not t["covers"] and not t["supports"]:
+            issues.append(
+                {
+                    "path": t["rel"],
+                    "line": 1,
+                    "level": "warn",
+                    "msg": "任务单没有 covers / supports：说不清它负责哪几条需求",
+                }
+            )
+        for rid in t["covers"]:
+            primary.setdefault(rid, []).append(t["id"])
+
+    for rid in sorted(primary, key=sort_key):
+        tasks = primary[rid]
+        if len(tasks) > 1:
+            issues.append(
+                {
+                    "path": "docs/需求覆盖表.md",
+                    "line": 1,
+                    "level": "block",
+                    "msg": f"{rid} 被多张任务单同时标为主责：{'、'.join(tasks)}（只留一个）",
+                }
+            )
+
+    uncovered = [rid for rid in sorted(reqs, key=sort_key) if rid not in primary]
+    if uncovered:
+        issues.append(
+            {
+                "path": "docs/需求覆盖表.md",
+                "line": 1,
+                "level": "warn",
+                "msg": f"还有 {len(uncovered)} 条需求没有主责任务：{'、'.join(uncovered)}",
+            }
+        )
+
+    if not MATRIX.is_file():
+        issues.append(
+            {
+                "path": "docs/需求覆盖表.md",
+                "line": 1,
+                "level": "block",
+                "msg": "需求覆盖表不存在（跑 python scripts/docs.py matrix）",
+            }
+        )
+    elif read_text(MATRIX) != build_matrix():
+        issues.append(
+            {
+                "path": "docs/需求覆盖表.md",
+                "line": 1,
+                "level": "block",
+                "msg": "需求覆盖表与任务单不一致（跑 python scripts/docs.py matrix）",
+            }
+        )
+    return issues
+
+
 # ---------------------------------------------------------------- 命令
+
+
+def cmd_matrix(_args) -> int:
+    write_text(MATRIX, build_matrix())
+    out(f"已生成 {MATRIX.relative_to(ROOT).as_posix()}")
+    return 0
 
 
 def cmd_index(_args) -> int:
@@ -356,6 +598,7 @@ def cmd_check(_args) -> int:
     issues: list[dict] = []
     for path in iter_docs():
         issues.extend(check_file(path, forbidden, today, owners))
+    issues.extend(matrix_issues())
 
     expected = build_index()
     if not INDEX.is_file():
@@ -435,16 +678,18 @@ def cmd_fix(_args) -> int:
                 changed += 1
 
     write_text(INDEX, build_index())
-    out(f"已重建 docs/INDEX.md；共改动 {changed} 处")
+    write_text(MATRIX, build_matrix())
+    out(f"已重建 docs/INDEX.md 与 docs/需求覆盖表.md；共改动 {changed} 处")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="文档体系工具（index / check / fix）")
+    parser = argparse.ArgumentParser(description="文档体系工具（index / matrix / check / fix）")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("index", help="生成 docs/INDEX.md").set_defaults(func=cmd_index)
-    sub.add_parser("check", help="检查元数据、死链、合规（CI 用）").set_defaults(func=cmd_check)
-    sub.add_parser("fix", help="自动补 front-matter、补小节、重建索引").set_defaults(func=cmd_fix)
+    sub.add_parser("matrix", help="生成 docs/需求覆盖表.md").set_defaults(func=cmd_matrix)
+    sub.add_parser("check", help="检查元数据、死链、合规、需求覆盖（CI 用）").set_defaults(func=cmd_check)
+    sub.add_parser("fix", help="自动补 front-matter、补小节、重建索引与覆盖表").set_defaults(func=cmd_fix)
     args = parser.parse_args(argv)
     return args.func(args)
 

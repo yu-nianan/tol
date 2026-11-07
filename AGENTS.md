@@ -8,11 +8,12 @@
 
 ## 0. 开工前按这个顺序读（不要多读）
 
-1. 本文件（你已经在这）
+1. 本文件（你已经在这）——**§1.1 技术栈与版本、§1.2 命名约定、§1.3 架构决策**，三条各扫一眼就够
 2. `docs/INDEX.md` —— 找到「你负责的模块」那一行
-3. `docs/tickets/<你的任务单>.md` —— 你这次只做这一件事
-4. `OWNERS.md` —— 你被允许改哪些目录
-5. `app/schemas/*.py` —— 模块之间唯一合法的交接格式
+3. `docs/任务地图.md` 的 §3 —— 只读你那一行 + 前置任务，别读全文
+4. `docs/tickets/<你的任务单>.md` —— 你这次只做这一件事
+5. `OWNERS.md` —— 你被允许改哪些目录
+6. `app/schemas/*.py` —— 模块之间唯一合法的交接格式
 
 **读取上限：一次不超过 3 份文档、总量不超过 600 行。**
 超了说明任务切得太大，先找队长拆任务，不要硬读。
@@ -40,7 +41,9 @@ tests/                  # pytest，按模块建子目录
 data/                   # 测试素材（不入库，见 .gitignore）
 docs/
   INDEX.md              # ★ 自动生成，禁止手改
-  需求清单.md            # 需求基线（28 FR / 10 NFR / 11 交付物）
+  任务地图.md            # 谁的活先做、谁在等谁、交接与验收怎么算
+  需求覆盖表.md          # ★ 自动生成：每条需求由哪张任务单负责
+  需求清单.md            # 需求基线（29 FR / 11 NFR / 11 交付物）
   技术学习路线.md         # 学什么、按什么顺序学
   测试方案.md            # 用例与指标口径
   modules/              # 每个模块一份说明（新增文档放这里）
@@ -54,6 +57,45 @@ scripts/
   smoke.py              # 冒烟脚本
 docker/                 # compose 与 Dockerfile
 ```
+
+### 1.1 技术栈与版本（依据：`pyproject.toml` + `requirements.txt`，只有队长能改这张表）
+
+| 层 | 选型 | 版本 | 硬约束 |
+|---|---|---|---|
+| 语言 | Python | ≥3.10（本机 3.12，CI 3.11） | 不许用 3.11 才有的东西：`StrEnum`、`datetime.UTC`、`typing.Self`（要就用 `typing_extensions`） |
+| Web | FastAPI + uvicorn | fastapi≥0.110，uvicorn[standard]≥0.27 | 加路由只能 `include_router`，不改 `app/main.py` |
+| 校验 | Pydantic **v2** | ≥2.5 | 只用 v2 写法：`model_dump()` / `field_validator`；**禁止** `.dict()`、`@validator`、`class Config` |
+| HTTP | httpx | ≥0.27 | 只用于测试与调外部 API |
+| 测试 | pytest | ≥8.0 | 插件（asyncio 等）同样走申请制 |
+| 检查 | ruff | ≥0.6（本机 0.17.3） | 配置写死在 `pyproject.toml`：line-length 110、target py310、`select E,F,I,UP,B`、`ignore E501,B008` |
+| 存储 | SQLite（标准库 `sqlite3`）+ JSON | — | 不引入 ORM，不引入数据库服务 |
+| 检索 | 纯 Python | — | 不引入 jieba / faiss / numpy / scikit-learn |
+| 模型 | 外部 HTTP API（LLM / ASR / OCR） | — | 不进 `requirements.txt`；**没配就返回“未启用”，不许编结果** |
+| 前端 | 单文件 HTML + 原生 JS | — | 无构建、无 CDN（内网演示也要能跑） |
+
+要加依赖：开 Issue（`依赖申请`），写“包名 / 用途 / 不装的替代方案”，队长批了再改 `requirements.txt`。
+
+### 1.2 命名约定
+
+- **目录与文件**：`app/pipelines/<域>/<功能>.py`，域只限 `text / audio / vision / decision / knowledge / notify`；一个文件一件事（`normalize.py` 只清洗，`rules.py` 只出证据）。
+- **模块对外函数**：每个模块只暴露 1–3 个**动词**函数（`extract` / `transcribe` / `evaluate` / `build_report` / `notify_guardian`）；`_` 开头是内部实现，跨模块不许调。
+- **契约类型**：只定义在 `app/schemas/`；字段 **snake_case 全拼**（`script_id`，不写 `sid`）；字段名与类型**冻结**，要改走第 13 节。
+- **枚举值**：小写字符串，或 `"L0".."L3"` 这类短码；**不许中文枚举值**。
+- **接口路径**：业务接口 `/api/v1/<资源>`（复数、全小写）；健康检查 `/health`；演示页 `/demo`。
+- **错误**：统一 `{"error": {"code": "...", "message": "..."}}`，`code` 用**小写下划线**（`bad_request` / `internal_error`）；前端与脚本按 `code` 分支，不匹配文案。
+- **测试**：文件 `tests/test_<模块>_<行为>.py`，函数 `test_<行为>_<期望>`（例：`test_scoring_empty_evidence_returns_l0`）。
+- 分支、提交前缀、文档命名、任务单命名、人物代号：见 §10 与 §7，这里不重复。
+
+### 1.3 关键架构决策（只放结论，细节读 ADR）
+
+| ADR | 一句话结论 | 什么情况下才推翻 |
+|---|---|---|
+| ADR-0001 | 用 FastAPI 起 HTTP 服务，不用 Flask / Django / 单脚本 CLI | 需要前端同构或长期长连接时 |
+| ADR-0002 | 模块之间**只**传 `app/schemas` 里的 `Evidence / Decision / Alert / Report`，不传裸 dict | 出现跨模块高频二进制流（如原始音频）时 |
+| ADR-0003 | 验收只认四条命令（lint / test / smoke / 文档门禁），不认人工评审 | CI 超过 5 分钟，或 smoke 慢到没人愿意跑 |
+| ADR-0004 | 现在**不做**模块边界重构，只记录触发条件（“改 A 断 B”出现两次） | 症状出现后做“包入口 + 架构测试”，约 40 行 |
+
+新决策：新建 `docs/decisions/ADR-000N-<短名>.md`（照 `_模板` 的 front-matter），并在这张表加一行。**ADR 只追加，不改写。**
 
 ---
 
@@ -112,7 +154,7 @@ CODEOWNERS 目前只用于指派 reviewer，**没有**开启"必须 code owner �
 python scripts/docs.py check
 ```
 
-它检查六件事，任何一件不合规都会红：
+它检查七件事，任何一件不合规都会红：
 
 | 检查 | 说明 | 能自动修 |
 | --- | --- | --- |
@@ -122,6 +164,7 @@ python scripts/docs.py check
 | 死链 | 正文 `[文字](相对路径)` 与 front-matter `depends_on` 指向的文件都必须存在 | ❌ |
 | 合规 | 密钥、真实手机号/身份证、竞赛匿名词 | ❌ 人工改 |
 | 回执完整 | `docs/reports/` 里必须有四节：做了什么 / 没做完 / 下次接手 / 怎么验收 | ✅ 补空节 |
+| 需求覆盖 | 任务单 `covers` / `supports` 里的编号必须在 `docs/需求清单.md` 里存在；一条需求只能有一个主责；`docs/需求覆盖表.md` 必须与任务单同步 | ✅ 重跑 `matrix` |
 
 **`owner` 永远填人（代号），不填工具。** 你用的 agent 叫什么不重要，署名必须是负责的人；
 要记录工具，写在回执正文的「工具：」一行里。
@@ -129,9 +172,13 @@ python scripts/docs.py check
 卡住就按提示修，或跑一次：
 
 ```powershell
-python scripts/docs.py fix      # 补 front-matter、补小节、重建 INDEX
+python scripts/docs.py fix      # 补 front-matter、补小节、重建 INDEX 与需求覆盖表
 python scripts/docs.py index    # 只重建索引
+python scripts/docs.py matrix   # 只重建需求覆盖表（改了任务单 covers 之后跑这个）
 ```
+
+**改了任务单的 `covers` / `supports`，必须重跑 `matrix` 并一起提交**，否则 `check` 会红。
+任务单与需求的对应关系、谁先做谁后做，都写在 `docs/任务地图.md` 里。
 
 ---
 
@@ -141,7 +188,7 @@ python scripts/docs.py index    # 只重建索引
 2. **不许提交密钥、token、真实手机号、真实人名、真实身份证。** 示例数据一律用 `138****0000`、`张*`。
 3. **不许用硬编码结果"通过测试"。** 不许 `return {"score": 90}`；不许把真实模型调用注释掉再返回假数据。演示用的假数据必须放在 `data/` 并在 PR 里写明"此处为演示数据"。
 4. **不许改契约字段名或类型。** 缺字段就提 issue，不要自己加。
-5. **不许跨模块 import 内部实现。** 只能 `from app.schemas import ...` 或调用对方模块暴露的 `run()`。
+5. **不许跨模块 import 内部实现。** 只能 `from app.schemas import ...`，或调用对方模块对外暴露的那 1–3 个动词函数（`extract` / `transcribe` / `evaluate` / `build_report` 等，见 §1.2）；不许碰 `_` 开头的内部函数。
 6. **不许为了让测试通过而改测试断言**；不许 `try/except: pass` 吞异常。
 7. **不许 `git push --force`、不许直接推 `main`。**
 8. **不许手改 `docs/INDEX.md`**；不许在文档里编造没写过的项目背景。

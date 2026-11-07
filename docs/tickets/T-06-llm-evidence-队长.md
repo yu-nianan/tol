@@ -7,6 +7,9 @@ related_code: app/pipelines/text, app/core/config.py, tests/text
 summary: 用标准库调 OpenAI 兼容接口，只让它吐证据、不让它给分；没 key 时安静降级
 audience: agent
 depends_on: [../INDEX.md, ../需求清单.md, ../decisions/ADR-0002-evidence-contract.md]
+covers: [FR-2.1, FR-2.8]
+supports: [FR-2.4a]
+depends_on_task: []
 ---
 
 # 任务单：M5 接入大模型（只出证据，不出分数）

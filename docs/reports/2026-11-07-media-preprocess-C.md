@@ -25,7 +25,7 @@ depends_on: [../tickets/T-13-媒体预处理-C.md, ../modules/media.md, ../进�
 - 本票禁止改接口层：既有 HTTP 上传入口尚未接入预处理。压缩录音未内置转码器，需先转 PCM WAV；Linux 没有本模块所用的 Windows 工具时，需要先在相册中纠正方向。超大图提供裁剪/导出建议，不自动缩放。
 - 手机号/卡号定位依赖既有 OCR 文本块，只匹配单个文字块中的候选号码，尚未跨块合并，也未真正打码。JPEG 校验是结构检查，不保证熵编码的完整可解码性；PNG 另有 CRC、有界解压和行过滤校验。
 - 测试仅有一条既有依赖弃用警告（FastAPI / Starlette 的 TestClient）；未为此增加依赖。
-- GitHub 发布状态在本回执文末记录；未获得写入凭据前不宣称已开 PR。
+- GitHub 发布结果见文末；先前缺少凭据的阻塞已通过浏览器授权解决。
 
 ## 下次接手要知道什么
 
@@ -106,14 +106,11 @@ OK    阻断 0 / 警告 1 项
 
 ## GitHub 发布状态
 
-文件在 `D:\服务外包\tol`，已提交到本地 `feature/media-preprocess` 分支；未推送，PR 尚未创建。原因：本机没有可用的 GitHub 写入凭据。
+分支 `feature/media-preprocess` 已推送；[PR #18](https://github.com/yu-nianan/tol/pull/18) 已创建，目标 `main`，未合并，未直接推 main。PR 正文含四条命令完整输出、契约与进度声明。
+
+首次非交互推送因没有登录凭据失败（退出码 128）；随后浏览器授权完成，推送成功。原始错误：
 
 ```text
-命令：git push -u origin feature/media-preprocess
-退出码：128
-报错原文：
 fatal: Cannot prompt because user interactivity has been disabled.
 fatal: could not read Username for 'https://github.com': terminal prompts disabled
 ```
-
-PR 标题与完整正文已准备在 `C:\Users\A\AppData\Local\Temp\tol-t13-pr-body.md`；连接有该仓库写入权限的 GitHub 账号后继续推送、开 PR，不直接推 main。

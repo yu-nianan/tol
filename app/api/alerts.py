@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from app.core.errors import AppError
 from app.pipelines.decision.engine import get_engine
+from app.pipelines.notify.guardian import record_ack_in_session
 from app.schemas import AckRequest, Alert, ReportResponse
 
 router = APIRouter(prefix="/api/v1", tags=["alerts"])
@@ -24,9 +25,14 @@ def get_alert(alert_id: str) -> Alert:
 def ack_alert(alert_id: str, payload: AckRequest) -> Alert:
     engine = get_engine()
     try:
-        return engine.ack_alert(alert_id, payload.action, payload.note)
+        alert = engine.ack_alert(alert_id, payload.action, payload.note)
     except KeyError as exc:
         raise AppError("告警不存在", code="alert_not_found", status=404) from exc
+    # 人工处置结论回写会话，报告"通知记录"一节里能看到谁在什么时候怎么处理的
+    state = engine.sessions.get(alert.session_id)
+    if state is not None:
+        record_ack_in_session(state, alert, payload.action, payload.note)
+    return alert
 
 
 @router.get("/report/{session_id}", response_model=ReportResponse, summary="生成会话报告")

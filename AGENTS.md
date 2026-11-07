@@ -43,6 +43,7 @@ python scripts/docs.py check               # 文档门禁（front-matter / INDEX
 
 没有 `pwsh`：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1 -Task all`。
 报“没装 ruff / pytest”：加 `-Python "<解释器绝对路径>"`，别去改 PATH。
+报 `cannot be loaded` / `not digitally signed`：这台机器的策略禁未签名脚本 → 改用 `scripts\check.cmd`（启动服务同理用 `scripts\start.cmd`，内部都带 Bypass），别去改系统策略。
 
 **提 PR 的三条命令**（`gh` 写绝对路径，别靠 PATH——原因见故障排查页）
 

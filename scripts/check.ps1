@@ -35,14 +35,25 @@ function Invoke-Smoke {
     return ($LASTEXITCODE -eq 0)
 }
 
+function Test-PyImport([string]$Name) {
+    # 探测某个包能不能 import。$ErrorActionPreference=Stop 下原生程序的 stderr
+    # 会变成终止错误，所以这里临时降级并吞掉所有输出流。
+    $old = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    & $Python -c "import $Name" *> $null
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $old
+    return ($code -eq 0)
+}
+
 $results = @()
 
 if ($Task -in @('lint', 'all')) {
     # 先确认 ruff 可用，否则给出安装命令而不是一堆红字
-    $probe = & $Python -c "import ruff" 2>&1
-    if ($LASTEXITCODE -ne 0) {
+    if (-not (Test-PyImport 'ruff')) {
         Write-Host "[WARN] 当前解释器没装 ruff：$Python" -ForegroundColor Yellow
-        Write-Host "      安装：& `"$Python`" -m pip install -r requirements.txt" -ForegroundColor Yellow
+        Write-Host "      装依赖：& `"$Python`" -m pip install -r requirements.txt" -ForegroundColor Yellow
+        Write-Host "      换解释器：scripts\check.cmd -Task $Task -Python `"<项目用的那个 python.exe>`"" -ForegroundColor Yellow
         $results += @('lint', $false)
     } else {
         $results += @('lint', (Invoke-Ruff))
@@ -50,9 +61,10 @@ if ($Task -in @('lint', 'all')) {
 }
 
 if ($Task -in @('test', 'all')) {
-    $probe = & $Python -c "import pytest" 2>&1
-    if ($LASTEXITCODE -ne 0) {
+    if (-not (Test-PyImport 'pytest')) {
         Write-Host "[WARN] 当前解释器没装 pytest：$Python" -ForegroundColor Yellow
+        Write-Host "      装依赖：& `"$Python`" -m pip install -r requirements.txt" -ForegroundColor Yellow
+        Write-Host "      换解释器：scripts\check.cmd -Task $Task -Python `"<项目用的那个 python.exe>`"" -ForegroundColor Yellow
         $results += @('test', $false)
     } else {
         $results += @('test', (Invoke-Pytest))

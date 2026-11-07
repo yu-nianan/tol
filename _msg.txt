@@ -1,0 +1,22 @@
+chore(scripts): 加 .cmd 启动器，绕开未签名脚本策略
+
+背景：队友机器上直接跑 .\scripts\start.ps1 报
+cannot be loaded. The file is not digitally signed
+（该机 CurrentUser=RemoteSigned、无 MOTW，仍被拦；我本机同样复现）。
+
+改动：
+- 新增 scripts/start.cmd、scripts/check.cmd：内部用
+  -NoProfile -ExecutionPolicy Bypass -File 调对应 .ps1，双击可用，
+  不受执行策略限制；参数原样透传（-Port/-Open/-Python/-Task）。
+- check.ps1：探针 Test-PyImport 临时静默 stderr（根因是脚本里
+  \Continue='Stop' 把原生 stderr 变成终止错误，
+  会喷 Python Traceback）；缺少 ruff/pytest 时的提示补上安装命令与换解释器命令。
+- README：命令区加"最省事用 .cmd"；排障表加
+  
+ot digitally signed 一行，其余行的 start.ps1 改 start.cmd。
+- AGENTS.md §2：同一现象给出 .cmd 解法（126 -> 127 行）。
+- docs/进度.md：记录启动器已落地、更新当前 commit 与下一步。
+
+验收：lint PASS；test 144 passed；smoke 5/5（95.3/L3、15.5/L0、54ms、422）；
+docs 阻断 0 / 警告 1（FR-4.2/4.3 历史遗留）。
+契约变更：无

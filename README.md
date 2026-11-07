@@ -31,6 +31,7 @@ pwsh scripts/check.ps1 -Task all
 浏览器打开 <http://127.0.0.1:8000> 是自带演示页（无需前端构建）；
 打开 <http://127.0.0.1:8000/docs> 是自动生成的接口文档。
 
+> **最省事**：`scripts\start.cmd` 和 `scripts\check.cmd`——内部带 `-ExecutionPolicy Bypass`，双击或直接敲都行，不受 PowerShell 策略限制。
 > 没有 `pwsh` 的机器：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1 -Task all`
 > 机器有多个 Python：`.\scripts\start.ps1 -Python "C:\Python311\python.exe"`
 
@@ -38,9 +39,10 @@ pwsh scripts/check.ps1 -Task all
 
 | 现象 | 原因 | 解决 |
 |---|---|---|
-| 浏览器提示"无法访问此网站 / 拒绝连接" | 服务根本没起来（最常见） | 先开一个终端跑 `.\scripts\start.ps1`，看到绿色的地址再开浏览器 |
-| 终端报 `No module named 'fastapi'`（或 uvicorn） | 你的 `python` 指向另一个没装依赖的解释器 | 用 `start.ps1`（会自动挑对的），或 `start.ps1 -Python "C:\Python311\python.exe"` |
-| 终端报 `[Errno 10048] 端口已被占用` | 8000 被别的程序占了 | `.\scripts\start.ps1 -Port 8010`，地址相应变成 `http://127.0.0.1:8010` |
+| 浏览器提示"无法访问此网站 / 拒绝连接" | 服务根本没起来（最常见） | 先开一个终端跑 `scripts\start.cmd`，看到绿色的地址再开浏览器 |
+| 跑脚本时报 `cannot be loaded` / `not digitally signed` | 这台机器的 PowerShell 策略禁止运行未签名脚本 | 用 `scripts\start.cmd` / `scripts\check.cmd`（内部已带 Bypass）；或 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start.ps1` |
+| 终端报 `No module named 'fastapi'`（或 uvicorn） | 你的 `python` 指向另一个没装依赖的解释器 | 用 `start.cmd`（会自动挑对的），或 `scripts\start.cmd -Python "C:\Python311\python.exe"` |
+| 终端报 `[Errno 10048] 端口已被占用` | 8000 被别的程序占了 | `scripts\start.cmd -Port 8010`，地址相应变成 `http://127.0.0.1:8010` |
 | 打开的是文件路径（`file:///...`）而不是网址 | 直接双击了 `.py` 或 `.md` 文件 | 地址栏必须是 `http://127.0.0.1:8000` |
 
 > 关掉那个终端窗口 = 服务停止。要长期挂着，就让它一直开着，或第 6 周用 Docker 跑。

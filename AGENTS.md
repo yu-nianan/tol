@@ -1,337 +1,102 @@
-# AGENTS.md —— 给 AI 编程智能体的入职须知
+# AGENTS.md —— 入口文件（5 分钟读完）
 
-> 本文件是团队的**唯一权威约定**。与任务单冲突时以任务单为准；与"你觉得更优雅"冲突时以本文件为准。
-> 人看不懂代码没关系，但**下面四条命令必须全绿**，否则不算做完。
-> 本文件的旧版方案（会议流程稿）在 `docs/archive/协作机制说明.md`，只作历史参考。
-
----
-
-## 0. 开工前按这个顺序读（不要多读）
-
-1. 本文件（你已经在这）——**§1.1 技术栈与版本、§1.2 命名约定、§1.3 架构决策**，三条各扫一眼就够
-2. `docs/INDEX.md` —— 找到「你负责的模块」那一行
-3. `docs/任务地图.md` 的 §3 —— 只读你那一行 + 前置任务，别读全文
-4. `docs/tickets/<你的任务单>.md` —— 你这次只做这一件事
-5. `OWNERS.md` —— 你被允许改哪些目录
-6. `app/schemas/*.py` —— 模块之间唯一合法的交接格式
-
-**读取上限：一次不超过 3 份文档、总量不超过 600 行。**
-超了说明任务切得太大，先找队长拆任务，不要硬读。
-文档没写到的背景 ≠ 你可以编；缺了就按第 9 节开 Issue，继续做能做的部分。
+> 本文件是团队唯一权威约定：与任务单冲突时以任务单为准，与“你觉得更优雅”冲突时以本文件为准。
+> 这里只放最常用的四样东西。细节都在 `docs/agents/`，按第 4 节那张表“什么时候读”点开，不要通读。
 
 ---
 
-## 1. 项目地图
+## 1. 项目概览
+
+**A30「多模态反诈智能助手」**：把短信 / 聊天截图 / 通话录音送进后端 → 抽证据 → 按剧本阶段打分 →
+输出 `L0–L3` 等级 + 可解释证据链；`L2` 以上预警，`L3` 通知监护人并出报告。
+现在跑的是**可跑骨架**：规则判别已通（证据 → 打分 → 告警 → 报告），真模型（LLM / ASR / OCR）走外部 HTTP API，
+没配就返回“未启用”，不许编结果。
 
 ```
-app/
-  main.py               # 入口（禁止修改，要加路由用 include_router）
-  api/                  # 路由层：只做参数校验 + 调 pipeline，不写业务
-  pipelines/            # 业务链路
-    text/               # 文本预处理、规则、Prompt
-    audio/              # VAD / ASR
-    vision/             # OCR / 截图解析
-    decision/           # 打分、阶段判定、融合
-    knowledge/          # 剧本库、案例库、检索、入库流水线
-    notify/             # 监护人推送、报告生成
-  core/                 # 配置、日志、异常、依赖注入
-  schemas/              # ★ 契约，只有队长能改
-  kb/                   # 知识库数据（剧本、案例）
-tests/                  # pytest，按模块建子目录
-data/                   # 测试素材（不入库，见 .gitignore）
-docs/
-  INDEX.md              # ★ 自动生成，禁止手改
-  任务地图.md            # 谁的活先做、谁在等谁、交接与验收怎么算
-  需求覆盖表.md          # ★ 自动生成：每条需求由哪张任务单负责
-  需求清单.md            # 需求基线（29 FR / 11 NFR / 11 交付物）
-  技术学习路线.md         # 学什么、按什么顺序学
-  测试方案.md            # 用例与指标口径
-  modules/              # 每个模块一份说明（新增文档放这里）
-  decisions/            # ADR-0001.. 一条决策一个文件
-  reports/              # 任务回执（每完成一个任务一份）
-  tickets/              # 任务单（派活用）
-  archive/              # 归档，不再维护
-scripts/
-  check.ps1             # 三条代码命令的入口
-  docs.py               # 文档门禁：index / check / fix
-  smoke.py              # 冒烟脚本
-docker/                 # compose 与 Dockerfile
+app/api/       路由：只做参数校验 + 调 pipeline          app/kb/      剧本与案例数据（10 剧本 / 20 案例）
+app/pipelines/ 业务：text audio vision decision knowledge notify
+app/schemas/   ★ 模块间唯一合法交接格式（只有队长能改）   app/core/    配置、日志、异常
+tests/  scripts/  docker/  data/   测试 / 四条命令入口 / 部署 / 素材（不入库）
+docs/{tickets,reports,modules,decisions,agents}/  任务单 / 回执 / 模块说明 / ADR / 本文件的细节页
 ```
 
-### 1.1 技术栈与版本（依据：`pyproject.toml` + `requirements.txt`，只有队长能改这张表）
-
-| 层 | 选型 | 版本 | 硬约束 |
-|---|---|---|---|
-| 语言 | Python | ≥3.10（本机 3.12，CI 3.11） | 不许用 3.11 才有的东西：`StrEnum`、`datetime.UTC`、`typing.Self`（要就用 `typing_extensions`） |
-| Web | FastAPI + uvicorn | fastapi≥0.110，uvicorn[standard]≥0.27 | 加路由只能 `include_router`，不改 `app/main.py` |
-| 校验 | Pydantic **v2** | ≥2.5 | 只用 v2 写法：`model_dump()` / `field_validator`；**禁止** `.dict()`、`@validator`、`class Config` |
-| HTTP | httpx | ≥0.27 | 只用于测试与调外部 API |
-| 测试 | pytest | ≥8.0 | 插件（asyncio 等）同样走申请制 |
-| 检查 | ruff | ≥0.6（本机 0.17.3） | 配置写死在 `pyproject.toml`：line-length 110、target py310、`select E,F,I,UP,B`、`ignore E501,B008` |
-| 存储 | SQLite（标准库 `sqlite3`）+ JSON | — | 不引入 ORM，不引入数据库服务 |
-| 检索 | 纯 Python | — | 不引入 jieba / faiss / numpy / scikit-learn |
-| 模型 | 外部 HTTP API（LLM / ASR / OCR） | — | 不进 `requirements.txt`；**没配就返回“未启用”，不许编结果** |
-| 前端 | 单文件 HTML + 原生 JS | — | 无构建、无 CDN（内网演示也要能跑） |
-
-要加依赖：开 Issue（`依赖申请`），写“包名 / 用途 / 不装的替代方案”，队长批了再改 `requirements.txt`。
-
-### 1.2 命名约定
-
-- **目录与文件**：`app/pipelines/<域>/<功能>.py`，域只限 `text / audio / vision / decision / knowledge / notify`；一个文件一件事（`normalize.py` 只清洗，`rules.py` 只出证据）。
-- **模块对外函数**：每个模块只暴露 1–3 个**动词**函数（`extract` / `transcribe` / `evaluate` / `build_report` / `notify_guardian`）；`_` 开头是内部实现，跨模块不许调。
-- **契约类型**：只定义在 `app/schemas/`；字段 **snake_case 全拼**（`script_id`，不写 `sid`）；字段名与类型**冻结**，要改走第 13 节。
-- **枚举值**：小写字符串，或 `"L0".."L3"` 这类短码；**不许中文枚举值**。
-- **接口路径**：业务接口 `/api/v1/<资源>`（复数、全小写）；健康检查 `/health`；演示页 `/demo`。
-- **错误**：统一 `{"error": {"code": "...", "message": "..."}}`，`code` 用**小写下划线**（`bad_request` / `internal_error`）；前端与脚本按 `code` 分支，不匹配文案。
-- **测试**：文件 `tests/test_<模块>_<行为>.py`，函数 `test_<行为>_<期望>`（例：`test_scoring_empty_evidence_returns_l0`）。
-- 分支、提交前缀、文档命名、任务单命名、人物代号：见 §10 与 §7，这里不重复。
-
-### 1.3 关键架构决策（只放结论，细节读 ADR）
-
-| ADR | 一句话结论 | 什么情况下才推翻 |
-|---|---|---|
-| ADR-0001 | 用 FastAPI 起 HTTP 服务，不用 Flask / Django / 单脚本 CLI | 需要前端同构或长期长连接时 |
-| ADR-0002 | 模块之间**只**传 `app/schemas` 里的 `Evidence / Decision / Alert / Report`，不传裸 dict | 出现跨模块高频二进制流（如原始音频）时 |
-| ADR-0003 | 验收只认四条命令（lint / test / smoke / 文档门禁），不认人工评审 | CI 超过 5 分钟，或 smoke 慢到没人愿意跑 |
-| ADR-0004 | 现在**不做**模块边界重构，只记录触发条件（“改 A 断 B”出现两次） | 症状出现后做“包入口 + 架构测试”，约 40 行 |
-
-新决策：新建 `docs/decisions/ADR-000N-<短名>.md`（照 `_模板` 的 front-matter），并在这张表加一行。**ADR 只追加，不改写。**
+技术栈版本、禁用写法、已定的 4 条架构决策 → `docs/agents/技术栈与架构决策.md`
+**已定的事不要重新讨论**：要推翻，先读对应 ADR，再按那页的流程写新 ADR。
 
 ---
 
-## 2. 只允许改这些路径
-
-- 你任务单里写明的路径
-- 你负责模块目录下的 `tests/`
-- 你负责的 `docs/modules/<模块>.md` 与 `docs/reports/` 里你自己的回执
-
-**一律不许碰**（碰了就是越界，PR 会被打回）：
-
-```
-app/schemas/**      ← 契约，只有队长改
-app/main.py
-app/core/**
-docker/**
-scripts/**
-Makefile
-docs/INDEX.md       ← 自动生成，手改必冲突
-AGENTS.md  OWNERS.md  .github/**
-```
-
-要改契约或入口：在任务单评论里写「申请：改 X 的 Y，理由 Z」，等队长改。
-
----
-
-## 3. 三条命令（交付前必须全部通过）
+## 2. 首次运行（五分钟）
 
 ```powershell
-pwsh scripts/check.ps1 -Task lint     # 风格与明显错误
-pwsh scripts/check.ps1 -Task test     # 单元测试
-pwsh scripts/check.ps1 -Task smoke    # 冒烟：服务能起、能判别、10s 内返回
+make setup                  # 装依赖 + 准备解释器（Windows 无 make 时用 docs/agents/工作流与交付.md §2 的等价命令）
+make test                   # 第一次应看到 23 passed
 ```
 
-没有 `pwsh` 的机器（只装了 Windows PowerShell）用这个等价写法：
+**四条命令：交付前必须全绿**（缺一条都不算做完）
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1 -Task all
+pwsh scripts/check.ps1 -Task lint          # 风格与明显错误
+pwsh scripts/check.ps1 -Task test          # 单元测试
+pwsh scripts/check.ps1 -Task smoke         # 冒烟：服务能起、能判别、10s 内返回
+python scripts/docs.py check               # 文档门禁（front-matter / INDEX / 死链 / 合规 / 覆盖）
 ```
 
-机器上有多个 Python、报"没装 ruff"时，显式指定解释器：`-Python "C:\Python311\python.exe"`。
-有 `make` 的机器上等价于 `make lint / test / smoke`。
+没有 `pwsh`：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1 -Task all`。
+报“没装 ruff / pytest”：加 `-Python "<解释器绝对路径>"`，别去改 PATH。
 
-**PR 描述里必须粘贴三条命令的完整输出**（不只是最后一行）。没贴 = 未完成。
-
-**`main` 分支的保护规则（重要）**：人工审批数为 **0**（GitHub 不允许自己批自己，所以不要求人批），
-能否合并完全由 CI 决定——`check`（ci.yml）与 `docs`（docs.yml）两个必需检查全绿才能合入。
-因此「本地四条命令全绿」和「PR 能合」是同一件事，不要指望有人点 Approve。
-CODEOWNERS 目前只用于指派 reviewer，**没有**开启"必须 code owner 批准"。
-
-**用 `gh` 提 PR / 看检查 / 合并的固定写法（路径写死，别靠 PATH）**
+**提 PR 的三条命令**（`gh` 写绝对路径，别靠 PATH——原因见故障排查页）
 
 ```powershell
-$gh = 'C:\Users\Lenovo\.local\gh\bin\gh.exe'   # 本机实际位置；PATH 里通常没有
+$gh = 'C:\Users\Lenovo\.local\gh\bin\gh.exe'
 & $gh pr create --base main --head <分支名> --title "<标题>" --body-file <正文文件>
-& $gh pr checks <编号> --watch                  # 等两个检查跑完
-& $gh pr merge <编号> --squash                  # 全绿后再合
-```
-
-为什么写绝对路径：装完 `gh` 后 `where gh` / `Get-Command gh` 常常仍然找不到——终端与 DSH 会话的 PATH 在进程启动那一刻就固化了，新装的目录不会自己进来。
-同理，**新开一个会话或切了分支，先确认自己在哪**：
-
-```powershell
-git branch --show-current
-git status --short
-```
-
-换分支前先 `git fetch origin`；PR 被 squash 合并后，本地 `main` 会落后一个提交，用 `git pull --ff-only` 对齐，
-不要在旧分支上接着写（否则下次 PR 会带上一堆“看起来像新改动、其实是历史”的 diff）。
-
----
-
-## 4. 第四条命令：文档门禁
-
-```powershell
-python scripts/docs.py check
-```
-
-它检查七件事，任何一件不合规都会红：
-
-| 检查 | 说明 | 能自动修 |
-| --- | --- | --- |
-| front-matter | 每份文档开头必须有 `title / owner / status / last_updated / summary / audience` | ✅ `--fix`（owner 除外） |
-| owner 代号 | `owner` 只能是 `队长 / A / B / C / D`（见 `scripts/owners.txt`），不许填空、真名、工具名 | ❌ 必须手填 |
-| INDEX 一致 | `docs/INDEX.md` 必须与磁盘一致 | ✅ 重跑 `index` |
-| 死链 | 正文 `[文字](相对路径)` 与 front-matter `depends_on` 指向的文件都必须存在 | ❌ |
-| 合规 | 密钥、真实手机号/身份证、竞赛匿名词 | ❌ 人工改 |
-| 回执完整 | `docs/reports/` 里必须有四节：做了什么 / 没做完 / 下次接手 / 怎么验收 | ✅ 补空节 |
-| 需求覆盖 | 任务单 `covers` / `supports` 里的编号必须在 `docs/需求清单.md` 里存在；一条需求只能有一个主责；`docs/需求覆盖表.md` 必须与任务单同步 | ✅ 重跑 `matrix` |
-
-**`owner` 永远填人（代号），不填工具。** 你用的 agent 叫什么不重要，署名必须是负责的人；
-要记录工具，写在回执正文的「工具：」一行里。
-
-卡住就按提示修，或跑一次：
-
-```powershell
-python scripts/docs.py fix      # 补 front-matter、补小节、重建 INDEX 与需求覆盖表
-python scripts/docs.py index    # 只重建索引
-python scripts/docs.py matrix   # 只重建需求覆盖表（改了任务单 covers 之后跑这个）
-```
-
-**改了任务单的 `covers` / `supports`，必须重跑 `matrix` 并一起提交**，否则 `check` 会红。
-任务单与需求的对应关系、谁先做谁后做，都写在 `docs/任务地图.md` 里。
-
----
-
-## 5. 硬性禁令
-
-1. **不许新增依赖。** 需要新库 → 在任务单写「申请依赖：包名，用途，不装的替代方案」，等批准。
-2. **不许提交密钥、token、真实手机号、真实人名、真实身份证。** 示例数据一律用 `138****0000`、`张*`。
-3. **不许用硬编码结果"通过测试"。** 不许 `return {"score": 90}`；不许把真实模型调用注释掉再返回假数据。演示用的假数据必须放在 `data/` 并在 PR 里写明"此处为演示数据"。
-4. **不许改契约字段名或类型。** 缺字段就提 issue，不要自己加。
-5. **不许跨模块 import 内部实现。** 只能 `from app.schemas import ...`，或调用对方模块对外暴露的那 1–3 个动词函数（`extract` / `transcribe` / `evaluate` / `build_report` 等，见 §1.2）；不许碰 `_` 开头的内部函数。
-6. **不许为了让测试通过而改测试断言**；不许 `try/except: pass` 吞异常。
-7. **不许 `git push --force`、不许直接推 `main`。**
-8. **不许手改 `docs/INDEX.md`**；不许在文档里编造没写过的项目背景。
-
----
-
-## 6. 什么算"做完了"（DoD，五条缺一不可）
-
-1. 三条代码命令全绿；
-2. `python scripts/docs.py check` 通过；
-3. 你改的核心函数至少有 1 个正例 + 1 个反例的单测；
-4. PR 描述里贴了命令的完整输出；
-5. PR 里写明「契约变更：无」或「契约变更：需队长改 schemas（已申请）」。
-
----
-
-## 7. 交付物在哪（最容易做错的一条）
-
-1. **你的交付物是仓库里的文件，不是聊天里的一段话。** 没进 git 的内容等于没做。
-2. 写完必须提交：
-
-   ```powershell
-   git checkout -b feature/<模块>-<短描述>
-   git add <你改的文件>
-   git commit -m "docs(<模块>): <做了什么>"
-   git push -u origin <分支名>
-   ```
-
-3. 任务回执写在 `docs/reports/`，不要发微信、不要只在对话里说。
-4. 推不上去（没权限 / 没网 / 报错）：把文件留在本地，在回执里写清
-   「文件在 `<绝对路径>`，未推送，原因：`<报错原文>`」。**禁止假装已上传。**
-
----
-
-## 8. 汇报格式（固定，不要发挥）
-
-回执文件：`docs/reports/YYYY-MM-DD-<模块>-<你的名字>.md`，从 `docs/reports/_模板.md` 复制。
-正文四节必须有：**做了什么 / 没做完 / 下次接手要知道什么 / 怎么验收**。
-
-对话里给人看的三行版：
-
-```
-做了什么：<一句话>
-验收命令：pwsh scripts/check.ps1 -Task all  +  python scripts/docs.py check
-结果：<全绿 / 哪条红，红在哪>
+& $gh pr checks <编号> --watch
+& $gh pr merge <编号> --squash
 ```
 
 ---
 
-## 9. 什么情况开 Issue（三类模板）
+## 3. 全局硬约束（15 条，任何理由都不行）
 
-| 模板 | 什么时候用 | 不要用它做的事 |
-| --- | --- | --- |
-| **需求** `01-requirement` | 要加功能、要改文档、要新素材 | 汇报进度 |
-| **阻塞或授权** `02-blocked` | 缺权限、缺账号、缺数据、缺算力 | 问"这个词什么意思" |
-| **文档问题** `03-doc-problem` | 文档缺失、过期、自相矛盾 | 提新需求 |
-
-判断标准一句话：**需要队长拍板或给你资源的，开 Issue；只需要让人知道你做完了的，写回执。**
-
----
-
-## 10. 分支与提交
-
-```
-分支：feature/<模块>-<短描述>     例：feature/audio-asr-basic
-提交：feat: 加 ASR 转写（FunASR）
-      fix: 修正 OCR 置信度低于 0.6 时未降权
-      test: 补打分器边界用例
-      docs(<模块>): 补任务回执
-```
-
-一次提交只做一件事；不要顺手重构别人的模块。
+1. **不许新增依赖。** 要装包 → 任务单申请（包名 / 用途 / 不装的替代方案），队长批准后再改 `requirements.txt`。
+2. **不许提交密钥、token、真实手机号、真实人名身份证、真实学校名。** 示例一律 `138****0000`、`张*`。
+3. **不许硬编码结果骗测试。** 不许 `return {"score": 90}`，不许注释掉真调用、不许把真实答案写死。
+4. **不许改契约字段名或类型。** `app/schemas/` 只有队长能改；缺字段提 Issue（§4 契约变更流程）。
+5. **不许跨模块 import 内部实现。** 只能 `from app.schemas import ...` 或调用对方对外那 1–3 个动词函数；`_` 开头的不许碰。
+6. **不许改测试断言让测试变绿**，不许 `try/except: pass` 吞异常。
+7. **不许 `git push --force`，不许直接推 `main`。** 一律走 PR，`main` 只认 CI。
+8. **不许手改自动生成的文件**：`docs/INDEX.md`、`docs/需求覆盖表.md`（改完任务单跑 `docs.py matrix` 重建）。
+9. **不许编造没写过的项目背景。** 文档缺了就开 Issue，同时先做能做的部分，别猜着写。
+10. **不许动未授权目录。** 以 `OWNERS.md` + 任务单为准；越界的 PR 直接打回。
+11. **交付物必须是提交进仓库的文件。** 只在对话里说、没进 git = 没做；推不上去要在回执里写路径 + 报错原文。
+12. **DoD 五条全满足才算做完**：四条命令全绿；改动的核心函数有 1 正例 + 1 反例单测；PR 贴了命令完整输出；写明「契约变更：无 / 已申请」；回执已提交。
+13. **汇报只写回执 + 三行**（做了什么 / 验收命令 / 结果全绿还是红在哪），不要小作文。
+14. **卡住两次就停。** 把报错原文整段贴到任务单评论 @负责人，不许注释测试、不许关 lint 规则绕过。
+15. **契约与门禁的变更只能走流程**：申请 → 队长改 → 群里发一句「契约变更：…」→ 所有人 `git pull` 后再写。
 
 ---
 
-## 11. 卡住怎么办（重要）
+## 4. 专题文档（按“什么时候读”点开，一次最多 3 份、总量 ≤600 行）
 
-- 连续两次尝试仍失败 → **停下来**，把报错原文整段贴到任务单评论，@负责人。
-- 不许"绕过"：不许注释掉测试、不许关掉 lint 规则、不许把异常吞掉。
-- 不确定需求时：**先写测试用例**（输入 → 期望输出），再让人确认，别猜着写。
-
----
-
-## 12. 跟人沟通的方式
-
-- 别说"我优化了代码结构"，说"四条命令的输出是什么"。
-- 别解释实现细节（他们看不懂），说"这个接口现在能吃 X 吐 Y，你可以这样调"。
-- 汇报只能用第 8 节的三行格式，不要写成小作文。
-
----
-
-## 13. 契约变更流程（全队唯一"需要等人"的事）
-
-1. 在任务单评论里写：要加/改哪个模型、哪个字段、为什么现在的字段不够；
-2. 队长改 `app/schemas/`，并在群里发一句「契约变更：Decision 加 `stage_index`」；
-3. 所有人 `git pull` 后再继续，不要在旧契约上写新代码。
+| 文档 | 里面有什么 | 什么时候读 |
+|---|---|---|
+| `docs/INDEX.md` | 全仓文档索引（自动生成） | 开工第一步，找你负责的那一行 |
+| `docs/tickets/<你的任务单>.md` | 这次只做这一件事：目标 / 输入输出 / 允许改的路径 / 验收命令 | 每次开工先读，读完再动手 |
+| `docs/任务地图.md` | 13 张任务的依赖与先后、交接三样、验收三层 | 想知道“我的活能不能开始”时，只读你那一行 |
+| `docs/需求清单.md` + `docs/需求覆盖表.md` | 29 FR / 11 NFR 基线；每条需求由哪张任务单主责 | 任务单写了 `covers`，要确认编号与主责 |
+| `docs/agents/技术栈与架构决策.md` | 版本表、禁用写法、加依赖流程、ADR 结论 | 要 import 新库、拿不准版本、想推翻某个技术选择 |
+| `docs/agents/命名与结构.md` | 目录职责、函数/契约/枚举/接口/错误码/测试命名、可改与禁改路径 | 新建文件或接口前 |
+| `docs/agents/工作流与交付.md` | 读文档顺序、分支提交、PR 正文、回执格式、Issue 三类、卡住/沟通、队长侧动作 | 第一次交付、或不知道该写在哪 |
+| `docs/agents/验收与门禁.md` | 四条命令细节、七项文档检查表、DoD、main 保护、CI 卡死的逃生通道 | 提交前自查、或 CI 红了看不懂 |
+| `docs/agents/故障排查.md` | gh 找不到、PATH 快照、503/404/空回答、切错分支、端口占用 | 命令跑不通时先看这一页 |
+| `docs/decisions/ADR-000N-*.md` | 每条技术决策的上下文与代价 | 想改已定的事时（ADR 只追加，不改写） |
+| `docs/modules/<模块>.md` | 你负责模块的对外契约与坑 | 接手模块 / 改别人模块的调用方式 |
+| `docs/测试方案.md` | 用例分层、指标口径、怎么自证 90%（自测 / 抽检） | 写测试、或准备答辩材料 |
+| `OWNERS.md` | 目录 → 负责人 → 权限 | 不确定自己能不能改某个文件 |
+| `docs/reports/_模板.md` | 回执模板（做了什么 / 没做完 / 下次接手 / 怎么验收） | 每次交活 |
 
 ---
 
-## 14. 队长侧的动作（Agent 只读，不用执行）
+## 5. 最后一句
 
-- 开赛第一周发两条公告：选型表（7 个槽位）+ 认领表，然后 20 分钟培训。
-- 只保留一场"认领会"（认领模块 + 认领任务），技术判断由队长单点决定，48 小时异议期。
-- 验收看两件事：第 2 周三条命令全绿；第 8 周 `docker compose up` 能演示。
-
-**CI 卡死时的逃生通道（只有队长能用，且要留痕）**
-
-ruleset `main-protection-ci` 没有 bypass 角色，如果 GitHub Actions 自己挂了（不是代码红、是 Actions 红），
-任何 PR 都合不进去。此时的唯一出口是临时把规则关掉：
-
-```powershell
-gh api repos/yu-nianan/tol/rulesets            # 先拿到 ruleset id
-gh api -X PATCH repos/yu-nianan/tol/rulesets/<id> -f enforcement=disabled
-# 合完 PR 立刻恢复
-gh api -X PATCH repos/yu-nianan/tol/rulesets/<id> -f enforcement=active
-```
-
-规矩：**只许在"Actions 故障"时用**，用完当天的回执里必须写一行「逃生通道使用：时间 / 原因 / 已恢复」。
-判断顺序永远是：先看本地四条命令 → 再看 Actions 日志红在哪一步 → 确认是 Actions 故障才动规则。
-
----
-
-## 15. 最后一条
-
-**你不需要把代码写得漂亮，你需要让"四条命令全绿 + 输出能贴出来"。**
-这个项目的评分不在代码质量，在"能不能演示、指标能不能自证"。
+**你不需要把代码写得漂亮，你需要让“四条命令全绿 + 输出能贴出来”。**
+这个项目不靠代码质量拿分，靠“能不能演示、指标能不能自证”。

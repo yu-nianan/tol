@@ -104,6 +104,29 @@ python scripts/docs.py check
 - [ ] 把 key 删掉再打一次，确认服务不 500、响应里只有规则证据
 - [ ] 贴一次"规则判 L1、加模型证据后判 L2/L3"的对照（证明模型确实补上了漏判）
 
+### 没有前端时怎么看效果（前端还没定，别等页面）
+
+D 的页面还在改，别等它。本地合一个临时的 `try/` 分支，起服务，用 `/docs` 直接打接口：
+
+```powershell
+git fetch origin
+git switch -c try/T-06-<日期> origin/main
+git merge <你的分支>
+scripts\start.cmd
+# 浏览器打开 http://127.0.0.1:8000/docs → POST /api/v1/detect/text → Try it out
+```
+
+要看的是**同一句话在两份配置下的输出差异**，不是页面好不好看：
+
+| 配置 | 期望看到 |
+|---|---|
+| 有 key | `evidence` 里出现 `kind="model"` 的条目，且分数比纯规则高 |
+| 没 key | 不报错、状态 200，`evidence` 只有规则项，日志一条 warning |
+
+把两次的**命令 + 完整响应**贴进 PR（脱敏）。四条命令全绿只是没倒退，不证明模型真的补上了漏判。
+
+看完清干净：`try/` 分支不 push，看完删掉；本地 main 保持和 `origin/main` 一致。
+
 ## 7. 预计与截止
 
 | 项 | 内容 |

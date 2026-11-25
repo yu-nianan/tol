@@ -1,198 +1,192 @@
-/* 告警页：列表（前端累积）、详情（证据链 + 处置状态）、监护人手机（演示）。
- *
- * 两处降级，UI 上必须如实标出来，不许假装：
- *  ① 后端没有告警列表接口 → 列表来自本会话 sessionStorage，刷新后仍在、换会话即空；
- *  ② 后端 Alert 没有"已读"字段、也没有真实 webhook → 只显示「已推送 / 已介入」两态，
- *     未配置通道时标「未推送（降级）」，按钮置灰并注明"预览"。
- */
-(function (global) {
-  "use strict";
+"use strict";
 
-  var LEVEL_TEXT = ["L0 无风险", "L1 提醒", "L2 警告", "L3 紧急"];
-  var STATUS_TEXT = {
-    open: "待处置",
-    acked: "已处置",
-    acknowledged: "已处置",
-    dismissed: "已忽略",
-    confirmed_false_positive: "确认为误报"
+/* ---------- 告警：由检测结果生成，不再是写死的三条 ---------- */
+function resetAlerts(){
+  state.alerts = [];
+  state.alertLevel = 0;
+  state.alertSeq = 0;
+  state.currentAlert = null;
+  state.acked = false;
+  renderAlertPage();
+}
+
+function recordAlert(r){
+  if (r.level < 1) return;                 // L0 只记录，不建告警
+  if (r.level <= state.alertLevel) return; // 同一会话只在跨档时新建一条
+  state.alertLevel = r.level;
+  state.alertSeq += 1;
+  var a = {
+    id: "AL-" + state.alertSeq,
+    level: r.level,
+    score: r.score,
+    stage: r.stage,
+    script: r.scriptName,
+    turns: r.turns,
+    at: nowStr().slice(11),
+    evidence: r.ev.slice(),
+    pushed: r.level >= 3 ? state.webhook : false,
+    read: false,
+    acked: false
   };
+  state.alerts.unshift(a);
+  state.currentAlert = a.id;
+  renderAlertPage();
+}
 
-  function levelClass(level) {
-    return ["l0", "l1", "l2", "l3"][Math.max(0, Math.min(3, level | 0))];
+function currentAlert(){
+  if (!state.currentAlert) return null;
+  for (var i = 0; i < state.alerts.length; i++) {
+    if (state.alerts[i].id === state.currentAlert) return state.alerts[i];
   }
+  return null;
+}
 
-  function fmtTime(iso) {
-    if (!iso) return "";
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return iso;
-    function p(n) { return n < 10 ? "0" + n : "" + n; }
-    return p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+function renderAlertPage(){
+  renderAlertList();
+  renderAlertDetail();
+  renderGuardian();
+}
+
+function renderAlertList(){
+  var box = $("#alertList");
+  if (!box) return;
+  if (!state.alerts.length) {
+    box.innerHTML = '<div class="muted" style="line-height:1.9">还没有告警。<br>' +
+      "回「检测」页把对话粘进去，等级到 L1 就会在这里生成一条。</div>";
+    return;
   }
-
-  function el(tag, cls, text) {
-    var node = document.createElement(tag);
-    if (cls) node.className = cls;
-    if (text !== undefined) node.textContent = text;
-    return node;
-  }
-
-  function renderList(list, activeId, onPick) {
-    var box = document.getElementById("alertList");
-    if (!box) return;
-    box.innerHTML = "";
-
-    var meta = document.getElementById("alertMeta");
-    if (meta) {
-      meta.textContent = list.length
-        ? "共 " + list.length + " 条 · 同会话跨档会自动新建一条"
-        : "同会话跨档会自动新建一条";
-    }
-
-    if (!list.length) {
-      box.appendChild(el("li", "hint", "本次会话还没有告警。"));
-      return;
-    }
-
-    list.slice().reverse().forEach(function (a) {
-      var item = el("li", "alert-item" + (a.id === activeId ? " on" : ""));
-      item.style.borderLeftColor = "var(--" + levelClass(a.level) + ")";
-
-      var t = el("div", "t");
-      var badge = el("span", "badge", "L" + (a.level | 0));
-      badge.style.background = "var(--" + levelClass(a.level) + ")";
-      t.appendChild(badge);
-      t.appendChild(el("span", "", a.script_name || "可疑对话"));
-      t.appendChild(el("span", "hint", (a.score || 0) + " 分"));
-
-      var s = el("div", "s", fmtTime(a.created_at) + " · " + (STATUS_TEXT[a.status] || a.status || "待处置"));
-      item.appendChild(t);
-      item.appendChild(s);
-      item.addEventListener("click", function () { onPick(a.id); });
-      box.appendChild(item);
+  box.innerHTML = state.alerts.map(function(a){
+    var tag = a.level >= 3 ? "l3" : (a.level >= 2 ? "l2" : "wait");
+    var st = a.feedback === "scam" ? "已确认诈骗"
+      : a.feedback === "fp" ? "已标记误报"
+      : a.acked ? "已介入" : (a.read ? "已读 · 待处置" : (a.pushed ? "已推送 · 待查看" : "未推送"));
+    return '<div class="alertitem' + (a.id === state.currentAlert ? " on" : "") + '" data-alert="' + a.id + '">' +
+      '<span class="tag ' + tag + '">L' + a.level + "</span>" +
+      '<div><div class="t">' + esc(a.script === "—" ? "未命中剧本" : a.script) +
+      " · 命中 " + a.evidence.length + " 条证据</div>" +
+      '<div class="s">' + esc(a.at) + " · " + a.score.toFixed(1) + " 分 · " + esc(st) + "</div></div></div>";
+  }).join("");
+  $$("#alertList .alertitem").forEach(function(el){
+    el.addEventListener("click", function(){
+      state.currentAlert = el.getAttribute("data-alert");
+      renderAlertPage();
     });
+  });
+}
+
+  function renderAlertDetail(){
+  var box = $("#alertDetail");
+  if (!box) return;
+  var a = currentAlert();
+  if (!a) { box.innerHTML = ""; return; }
+  var evs = a.evidence.filter(function(e){ return e.speaker === "them"; }).slice(0, 5);
+  box.innerHTML = '<div class="hr"></div>' +
+    '<div class="muted" style="margin-bottom:8px">这条告警凭什么这么判（阶段：' +
+    esc(a.stage) + " · 第 " + a.turns + " 轮）</div>" +
+    (evs.length ? evs.map(function(e){
+      return '<div class="ev"><div class="lab">' + esc(e.lab) +
+        '<span class="spk them">对方</span></div>' +
+        '<div class="quo">「' + esc(e.quo) + '」</div>' +
+        '<div class="cod">' + esc(e.cod) + "</div></div>";
+    }).join("") : '<div class="muted">这条告警没有对方话术证据。</div>') +
+    feedbackRow(a);
+  bindFeedback();
+}
+
+/* ---------- 用户判定：确认诈骗 / 误报（FR-4 在用户侧的入口） ---------- */
+function feedbackRow(a){
+  if (a.feedback === "scam") {
+    return '<div class="muted" style="margin-top:10px;color:var(--ok)">已确认是诈骗 · 已提交人工复核（待审 +1）</div>';
+  }
+  if (a.feedback === "fp") {
+    return '<div class="muted" style="margin-top:10px;color:var(--l2)">已标记为误报 · 不进案例库，会用于降低误报</div>';
+  }
+  return '<div class="row" style="margin-top:12px">' +
+    '<button class="btn" id="fbScam" type="button">确认是诈骗</button>' +
+    '<button class="btn" id="fbFp" type="button">是误报</button>' +
+    '<span class="muted">你的判断会进入复核队列，用于更新识别能力</span>' +
+    '</div>';
+}
+
+function bindFeedback(){
+  var scam = $("#fbScam"), fp = $("#fbFp");
+  if (scam) scam.addEventListener("click", function(){ giveFeedback("scam"); });
+  if (fp) fp.addEventListener("click", function(){ giveFeedback("fp"); });
+}
+
+function giveFeedback(kind){
+  var a = currentAlert();
+  if (!a) return;
+  if (a.feedback) { toast("这条已经标记过了"); return; }
+  a.feedback = kind;
+  if (kind === "scam") {
+    state.kb.pending += 1;
+    updateKb();
+    toast("已提交人工复核（待审 +1）· 审核通过后用于更新识别能力");
+  } else {
+    toast("已标记误报 · 不进案例库，会用于降低误报");
+  }
+  renderAlertPage();
+}
+
+function updateKb(){
+  var v = $("#kbVer"), pd = $("#kbPending");
+  if (v) v.textContent = state.kb.version;
+  if (pd) pd.textContent = state.kb.pending;
+}
+
+function guardianNote(a){
+  if (a.level < 3) return "L" + a.level + " 不触发监护人推送（只有 L3 才推）。下面是配置好之后监护人<b>会</b>看到的内容。";
+  if (!state.webhook) return "当前未配置 GUARDIAN_WEBHOOK，这条通知<b>没有发出去</b>（降级）。下面是监护人<b>会</b>看到的内容。";
+  return "";
+}
+
+function guardianBubbles(a){
+  var tops = a.evidence.filter(function(e){ return e.speaker === "them"; })
+    .slice(0, 3).map(function(e){ return e.lab; }).join("・");
+  return '<div class="time">今天 ' + esc(a.at.slice(0, 5)) + "</div>" +
+    '<div class="bubble sys">【' + (a.level >= 3 ? "紧急" : "警告") + "】您的家人（" +
+      esc(state.guardian.name) + "，" + esc(state.guardian.rel) + "）可能正在遭遇诈骗，风险等级 <b>L" +
+      a.level + "</b>。</div>" +
+    (tops ? '<div class="bubble warn">命中证据：' + esc(tops) + "。</div>" : "") +
+    '<div class="bubble">系统已向当事人发出风险提醒，并建议立即挂断。请立即联系本人确认。</div>' +
+    '<div class="bubble sys">处置建议：先打电话给本人，确认是否已转账；已转账请立即拨 96110 并保留凭证。</div>' +
+    (a.acked ? '<div class="time">刚刚</div><div class="bubble me">我已介入，正在联系家人</div>' : "");
+}
+
+function renderGuardian(){
+  var chat = $("#chat");
+  if (!chat) return;
+  var a = currentAlert();
+
+  if (!a) {
+    chat.innerHTML = '<div class="time">—</div><div class="bubble">还没有告警，监护人不会收到任何消息。</div>';
+  } else {
+    var note = guardianNote(a);
+    var body = guardianBubbles(a);
+    chat.innerHTML = note
+      ? '<div class="bubble" style="border-style:dashed;color:var(--ink3)">' + note + "</div>" +
+        '<div style="opacity:.55">' + body + "</div>"
+      : body;
+    chat.scrollTop = chat.scrollHeight;
   }
 
-  function renderSteps(alert, pushed) {
-    var box = document.getElementById("alertSteps");
-    if (!box) return;
-    box.innerHTML = "";
-
-    var done = alert && alert.status && alert.status !== "open";
-
-    var s1 = el("div", "step" + (pushed ? " on" : " warn"));
-    s1.textContent = pushed ? "已推送监护人" : "未推送（降级）";
-    box.appendChild(s1);
-
-    var s2 = el("div", "step" + (done ? " on" : ""));
-    s2.textContent = done ? "已介入" : "等待介入";
-    box.appendChild(s2);
-
-    var s3 = el("div", "step");
-    s3.textContent = done ? "已结案" : "未结案";
-    box.appendChild(s3);
+  var st = $("#ackState");
+  if (st) {
+    st.textContent = !a ? "—"
+      : a.acked ? "监护人已介入 · 回写完成（FR-3.3）"
+      : a.read ? "监护人已读 · 等待处置"
+      : a.pushed ? "已推送，等待监护人查看"
+      : (a.level < 3 ? "未达 L3，不推送监护人" : "未配置通道 → 未推送（降级）");
   }
+  var p = $("#st-push"), rd = $("#st-read"), ak = $("#st-ack");
+  if (p) p.classList.toggle("on", !!(a && a.pushed));
+  if (rd) rd.classList.toggle("on", !!(a && a.read));
+  if (ak) ak.classList.toggle("on", !!(a && a.acked));
 
-  function renderDetail(alert, ctx) {
-    var empty = document.getElementById("alertEmpty");
-    var body = document.getElementById("alertBody");
-    if (!alert || !alert.id) {
-      if (empty) empty.hidden = false;
-      if (body) body.hidden = true;
-      return;
-    }
-    if (empty) empty.hidden = true;
-    if (body) body.hidden = false;
-
-    var badge = document.getElementById("detailBadge");
-    if (badge) {
-      badge.textContent = "L" + (alert.level | 0);
-      badge.style.background = "var(--" + levelClass(alert.level) + ")";
-    }
-    var score = document.getElementById("detailScore");
-    if (score) score.textContent = alert.score || 0;
-    var script = document.getElementById("detailScript");
-    if (script) script.textContent = (alert.script_name || "") + " · " + fmtTime(alert.created_at);
-
-    var evBox = document.getElementById("detailEvidence");
-    if (evBox) {
-      evBox.innerHTML = "";
-      var list = (alert.evidence || ctx.evidence || []);
-      if (!list.length) {
-        evBox.appendChild(el("li", "hint", "这条告警没有留存证据（后端 Alert 不存 evidence，来自发起检测时的快照）。"));
-      }
-      list.forEach(function (ev) {
-        var item = el("li", "ev" + (ev.kind === "context" ? " ctx" : ""));
-        item.appendChild(el("div", "label", ev.label || ev.code || "证据"));
-        item.appendChild(el("div", "quote", "「" + (ev.text || "") + "」"));
-        var sub = "置信度 " + Math.round((ev.confidence || 0) * 100) + "% · 权重 " + (ev.weight || 0);
-        if (ev.turn) sub += " · 第 " + ev.turn + " 轮";
-        if (ev.speaker) sub += " · " + ev.speaker;
-        item.appendChild(el("div", "sub", sub));
-        evBox.appendChild(item);
-      });
-    }
-
-    renderSteps(alert, ctx.pushed);
-
-    var ackState = document.getElementById("ackState");
-    if (ackState) {
-      ackState.textContent = alert.status && alert.status !== "open"
-        ? "已记录处置：" + (STATUS_TEXT[alert.status] || alert.status)
-        : "还没处置。处置会写回后端（POST /alerts/{id}/ack）。";
-    }
-
-    var row = document.getElementById("feedbackRow");
-    if (row) {
-      Array.prototype.forEach.call(row.querySelectorAll("button[data-ack]"), function (btn) {
-        btn.disabled = !!(alert.status && alert.status !== "open");
-      });
-    }
-  }
-
-  function renderPhone(alert, settings) {
-    var chat = document.getElementById("guardianChat");
-    var who = document.getElementById("phoneWho");
-    var hint = document.getElementById("phoneHint");
-    if (!chat) return;
-
-    var name = settings.name || "（未设置）";
-    if (who) who.textContent = name + (settings.rel ? " · " + settings.rel : "");
-
-    chat.innerHTML = "";
-    if (!alert) {
-      chat.appendChild(el("div", "gmsg", "（还没有推送。先在检测页跑出一段 L2 以上的对话。）"));
-      return;
-    }
-
-    var msg = el("div", "gmsg");
-    msg.appendChild(el("div", "", "【反诈预警】" + name + "，系统检测到家人可能正在被" + (alert.script_name || "诈骗") + "，当前风险 " + (alert.score || 0) + " 分（L" + (alert.level | 0) + "）。"));
-    msg.appendChild(el("div", "", "建议立刻打电话确认，不要让他/她继续操作手机银行。"));
-    msg.appendChild(el("span", "t", fmtTime(alert.created_at) + " · 通道：" + (settings.hook === "local" ? "本地预览（未接 webhook）" : settings.hook)));
-    chat.appendChild(msg);
-
-    if (alert.status && alert.status !== "open") {
-      chat.appendChild(el("div", "gmsg sys", "监护人已回执：" + (STATUS_TEXT[alert.status] || alert.status)));
-    }
-
-    if (hint) {
-      hint.textContent = settings.hook === "local"
-        ? "当前是本地预览：不会真的发出去，按钮置灰标「预览」。"
-        : "已配置推送通道：" + settings.hook + "（演示环境仍需后端 webhook 支持）。";
-    }
-
-    var disabled = settings.hook === "local";
-    ["callVictim", "ackHere"].forEach(function (id) {
-      var b = document.getElementById(id);
-      if (b) b.disabled = disabled;
-    });
-  }
-
-  global.AlertUI = {
-    LEVEL_TEXT: LEVEL_TEXT,
-    levelClass: levelClass,
-    fmtTime: fmtTime,
-    renderList: renderList,
-    renderDetail: renderDetail,
-    renderPhone: renderPhone
-  };
-})(window);
+  var btn = $("#ackBtn"), call = $("#callBtn"), police = $("#callPolice");
+  var live = !!(a && a.pushed && !a.acked);
+  if (btn) { btn.disabled = !live; btn.textContent = a && a.acked ? "已介入 ✓" : "我已介入"; }
+  if (call) call.disabled = !live;
+  if (police) police.disabled = !live;
+}

@@ -144,7 +144,7 @@ class DetectionEngine:
         scored = dedupe([*state.evidence[-40:], *evidence])
         state.stage_index = max(state.stage_index, self._stage_pos(script))
         stage_floor = STAGE_FLOOR_SCORE if state.stage_index >= STAGE_FLOOR_FROM else 0.0
-        score, reasons, _dims, cap_applied = evaluate(scored, script, role, stage_floor=stage_floor)
+        score, reasons, dims, cap_applied = evaluate(scored, script, role, stage_floor=stage_floor)
         # T-09 画像偏移：角色 bias 已在 scoring 里加过，这里只补"历史告警次数"带来的额外偏移，
         # 理由一并进 Decision.reasons（避免同一份 bias 被加两次）
         profile = build_profile(scored, role, self.store.alert_count(role=role))
@@ -174,6 +174,9 @@ class DetectionEngine:
             need_human=level >= Level.L2,
             stage_index=state.stage_index,
             cited_case_ids=list(dict.fromkeys(cited_case_ids)),
+            # 维度得分率原样透出（缺失维度 None 不出现）；分数不含此项之外的换算，
+            # 前端只做展示，权重口径留在 scoring.py（ADR-0006）
+            dims={key: round(float(value), 3) for key, value in dims.items() if value is not None},
         )
 
         state.turns += 1

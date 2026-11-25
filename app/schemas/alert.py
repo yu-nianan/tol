@@ -84,6 +84,10 @@ class Decision(BaseModel):
     stage_index: int = Field(0, ge=0, le=4)
     # 本次判定引用的历史案例 id（T-08）；无引用时为空
     cited_case_ids: list[str] = Field(default_factory=list)
+    # 各维度得分率（0..1，键为 stage/entity/pressure/cross/channel/profile）。
+    # 缺失的维度不出现（与 scoring 的归一化口径一致）；前端「维度得分率」面板据此渲染，
+    # 权重口径只在 scoring.py 一处，不在前端复制，避免两端漂移（ADR-0006）。
+    dims: dict[str, float] = Field(default_factory=dict)
 
     @property
     def level_label(self) -> str:

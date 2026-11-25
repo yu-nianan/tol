@@ -1,250 +1,296 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="color-scheme" content="light" />
-<meta name="description" content="A30 多模态反诈智能助手：检测 → 分级告警 → 监护人确认 → 会话报告" />
-<title>A30 多模态反诈智能助手</title>
-<link rel="stylesheet" href="/static/style.css" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A30 多模态反诈智能助手 · 前端原型（静态预览）</title>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
-<header class="top">
-  <div class="brand">
-    <span class="logo">A30</span>
-    <span class="brand-text">
-      <strong>多模态反诈智能助手</strong>
-      <em>早发现 · 说清依据 · 有人兜住</em>
-    </span>
-  </div>
-
-  <nav class="tabs" id="tabs">
-    <a href="#/detect" data-view="detect">检测</a>
-    <a href="#/alert" data-view="alert">告警</a>
-    <a href="#/report" data-view="report">报告</a>
-  </nav>
-
-  <div class="top-right">
-    <label class="role">
-      角色
+<header>
+  <div class="bar">
+    <div class="brand"><span class="dot"></span>A30 多模态反诈智能助手</div>
+    <div class="tabs" id="tabs">
+      <div class="tab on" data-view="detect">检测</div>
+      <div class="tab" data-view="alert">告警</div>
+      <div class="tab" data-view="report">报告</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="rolebox">
+      <span>角色</span>
       <select id="role">
-        <option value="normal">普通用户</option>
-        <option value="elder">老年人</option>
+        <option value="normal">普通</option>
+        <option value="elder">老人</option>
         <option value="student">学生</option>
         <option value="child">儿童</option>
-        <option value="finance">财务人员</option>
+        <option value="finance">财会</option>
       </select>
-    </label>
-    <button class="ghost" id="settingsBtn" type="button">设置</button>
+      <button class="lnk-top" id="setBtn" type="button">设置</button>
+    </div>
   </div>
 </header>
 
-<main id="main">
+<div class="wrap">
 
-  <!-- ============ 检测 ============ -->
-  <section class="view" id="view-detect">
+  <!-- ================= 检测 ================= -->
+  <section class="view on" id="view-detect">
+    <div class="pagehead">
+      <h1>检测</h1>
+      <div class="sub">逐条粘对方与自己的话 · 每加一条重判 · 阶段推进 → 定级</div>
+    </div>
 
-    <aside class="card profile" id="profileCard">
-      <div class="card-head">
-        <h2>推断画像</h2>
-        <button class="link" id="profileToggle" type="button">收起</button>
+    <!-- 画像卡：来源分 自选 / 推断 / 待确认 -->
+    <div class="profile" id="profileCard">
+      <div class="pf-head">
+        <span class="pf-title">我眼中的你</span>
+        <span class="pf-sum" id="pfSum">—</span>
+        <button class="lnk" id="pfToggle" type="button">收起</button>
       </div>
-      <p class="hint">零提问推断：只从对话里读，标「推断」的都可以改。</p>
-      <div id="profileFields" class="fields"></div>
-      <p class="hint" id="profileWhy"></p>
-    </aside>
+      <div class="pf-chips" id="pfChips"></div>
+      <div class="pf-why" id="pfWhy"></div>
+    </div>
 
-    <section class="card conversation">
-      <div class="card-head">
-        <h2>对话</h2>
-        <span class="hint" id="convoMeta">0 轮</span>
-      </div>
+    <div class="grid">
+      <!-- 左：输入 -->
+      <div class="card">
+        <h2><span class="n">1</span>对话</h2>
 
-      <div class="presets">
-        <button class="ghost" data-preset="s01" type="button">冒充公检法</button>
-        <button class="ghost" data-preset="s04" type="button">客服退款</button>
-        <button class="ghost" data-preset="normal" type="button">正常消息</button>
-        <button class="ghost" id="undoBtn" type="button">撤销</button>
-        <button class="ghost" id="clearBtn" type="button">清空</button>
-      </div>
-
-      <div class="chips" id="overview"></div>
-
-      <ol class="convo" id="convo"></ol>
-
-      <div class="composer">
-        <textarea id="input" rows="2" placeholder="把对方说的话粘进来，或用下面两个按钮分开录"></textarea>
-        <div class="send-row">
-          <button class="primary" id="sendThem" type="button">↑ 这是对方说的</button>
-          <button class="secondary" id="sendMe" type="button">↑ 这是我说的</button>
-          <span class="hint">回车 = 对方说的 · Shift+回车换行</span>
+        <div class="chips" id="mods">
+          <div class="chip on" data-mod="text">文本</div>
+          <div class="chip off" data-mod="image">截图（未启用）</div>
+          <div class="chip off" data-mod="audio">录音（未启用）</div>
         </div>
-      </div>
-    </section>
 
-    <section class="card result">
-      <div class="empty" id="emptyState">
-        <h2>怎么用</h2>
-        <ol>
-          <li>先点一个预设，或自己录两轮对话；</li>
-          <li>每按一次按钮 = 一次检测，右侧出分；</li>
-          <li>L2 以上弹预警，L3 通知监护人；</li>
-          <li>点「结束对话 · 生成报告」出证据链。</li>
-        </ol>
-        <p class="hint">分开录「对方」和「我」，是因为说话人决定证据维度：对方的话进阶段分，我的话只进受害状态。</p>
-      </div>
+        <div class="convo" id="convo"></div>
 
-      <div id="resultBox" hidden>
-        <div class="score-row">
-          <span class="badge" id="levelBadge">L0</span>
-          <span class="score" id="score">0</span>
-          <span class="score-unit">/ 100</span>
-        </div>
-        <div class="meta" id="meta"></div>
-        <div class="stagebar" id="stageBar" role="img" aria-label="剧本阶段"></div>
-        <div class="victim" id="victimBox" hidden></div>
-        <div class="block">
-          <h3>证据 <span class="hint" id="evCount"></span></h3>
-          <ul class="evlist" id="evList"></ul>
-        </div>
-        <details class="fold" id="dimFold" open>
-          <summary>维度得分率 <span class="hint">（0–1，缺失维度不显示）</span></summary>
-          <div class="dims" id="dimBox"></div>
-        </details>
-        <div class="block">
-          <h3>建议</h3>
-          <ul class="advice" id="adviceBox"></ul>
-        </div>
-        <details class="fold">
-          <summary>原始 JSON</summary>
-          <pre id="jsonBox"></pre>
-        </details>
-        <button class="primary wide" id="finishBtn" type="button">结束对话 · 生成报告</button>
-      </div>
-    </section>
-  </section>
-
-  <!-- ============ 告警 ============ -->
-  <section class="view" id="view-alert" hidden>
-    <section class="card alert-list">
-      <div class="card-head">
-        <h2>本次会话的告警</h2>
-        <span class="hint" id="alertMeta">同会话跨档会自动新建一条</span>
-      </div>
-      <ul id="alertList" class="alert-items"></ul>
-      <p class="hint">后端没有告警列表接口，这里显示本次会话产生的告警（刷新后从 sessionStorage 恢复）。</p>
-    </section>
-
-    <section class="card alert-detail" id="alertDetail">
-      <div class="empty" id="alertEmpty">
-        <h2>还没有告警</h2>
-        <p class="hint">先到「检测」里跑一段冒充公检法，L1 以上就会在这里出现。</p>
-      </div>
-      <div id="alertBody" hidden>
-        <div class="score-row">
-          <span class="badge" id="detailBadge">L0</span>
-          <span class="score" id="detailScore">0</span>
-          <span class="hint" id="detailScript"></span>
-        </div>
-        <div class="steps" id="alertSteps"></div>
-        <div class="block">
-          <h3>证据链</h3>
-          <ul class="evlist" id="detailEvidence"></ul>
-        </div>
-        <div class="block">
-          <h3>处置</h3>
-          <div class="row" id="feedbackRow">
-            <button class="secondary" data-ack="ack" type="button">我已介入</button>
-            <button class="secondary" data-ack="confirm_false_positive" type="button">确认是诈骗</button>
-            <button class="ghost" data-ack="dismiss" type="button">误报，忽略</button>
+        <div class="composer">
+          <textarea id="input" placeholder="粘贴对方刚发来的一条，或你自己回的那条…"></textarea>
+          <div class="sendbar">
+            <button class="btn pri" id="sendThem">↑ 这是对方说的</button>
+            <button class="btn" id="sendMe">↑ 这是我说的</button>
           </div>
-          <p class="hint" id="ackState"></p>
+          <div class="tools">
+            <button class="lnk" id="undo" type="button">撤销上一条</button>
+            <button class="lnk" id="clear" type="button">清空对话</button>
+            <span class="muted" id="hint">回车 = 对方说的 · Shift+Enter 换行</span>
+          </div>
+        </div>
+
+        <!-- 闭环回执：预处理/检测完成后从输入框下方滑出 -->
+        <div class="loopback" id="loopback" role="status" aria-live="polite"></div>
+
+        <div class="presets">
+          <button class="btn ghost" data-preset="s01">冒充公检法（6 轮）</button>
+          <button class="btn ghost" data-preset="s04">客服退款（5 轮）</button>
+          <button class="btn ghost" data-preset="normal">正常消息（1 轮）</button>
+        </div>
+
+        <div class="overview">
+          <div>剧本 <b>12</b></div>
+          <div>案例 <b>20</b></div>
+          <div>知识库 <b id="kbVer">v1.2.3</b></div>
+          <div>待审 <b id="kbPending">2</b></div>
+          <div>LLM <b>未启用</b></div>
+          <div>ASR <b>未启用</b></div>
+          <div>OCR <b>未启用</b></div>
+          <div>规则链路 <b>已启用</b></div>
         </div>
       </div>
-    </section>
 
-    <aside class="card phone">
-      <div class="card-head"><h2>监护人端</h2><span class="hint" id="phoneWho">未设置</span></div>
-      <div class="phone-frame">
-        <div class="phone-chat" id="guardianChat"></div>
-        <div class="phone-actions">
-          <button class="secondary" id="callVictim" type="button">打电话给本人</button>
-          <button class="secondary" id="ackHere" type="button">我已介入</button>
-          <a class="primary btn-link" href="tel:96110">一键 96110</a>
+      <!-- 右：结果 -->
+      <div class="card tall">
+        <h2><span class="n">2</span>结果</h2>
+
+        <div id="emptyState" class="empty">
+          <div class="empty-title">还没有对话</div>
+          <div class="empty-steps">
+            <div>① 粘贴对方发来的第一条，点「这是对方说的」</div>
+            <div>② 你自己的回复也要粘：点「这是我说的」</div>
+            <div>③ 每加一条，右侧就重判一次：分数上涨 → 阶段推进 → 定级</div>
+          </div>
+          <div class="empty-hint">演示顺序建议：先只粘第 1 条（只到「立威」，L1 提醒）→ 继续粘到「请勿告知任何人」（L2）→ 最后粘转账那句（L3）。同一段对话，等级是长出来的，不是一次判出来的。</div>
+        </div>
+
+        <div id="resultBox" style="display:none">
+          <div class="analyzing">正在分析这段对话…</div>
+          <div class="verdict">
+            <span class="badge l3" id="lvBadge">L3 紧急</span>
+            <div class="score"><span id="scoreVal">0.0</span><small>/ 100</small></div>
+          </div>
+          <div class="meta">
+            <div>阶段 <b id="stageVal">—</b></div>
+            <div>轮次 <b id="turnVal">0</b></div>
+            <div>会话 <b id="sessVal">sess-demo-1</b></div>
+            <div>时延 <b id="latVal">—</b></div>
+          </div>
+
+          <div class="stages" id="stageBar"></div>
+
+          <div id="victimBox"></div>
+
+          <div id="evList"></div>
+
+          <details>
+            <summary>维度贡献（评分怎么来的）</summary>
+            <div class="dim" id="dimBox"></div>
+          </details>
+
+          <details>
+            <summary>技术细节（给答辩看，不给评委看）</summary>
+            <pre id="jsonBox">{}</pre>
+          </details>
+
+          <div id="adviceBox" style="margin-top:14px"></div>
+
+          <div class="row" style="margin-top:18px">
+            <button class="btn pri" id="finishBtn" type="button">结束对话 · 生成报告</button>
+            <span class="muted">你认为对话已经结束，才生成报告</span>
+          </div>
         </div>
       </div>
-      <p class="hint" id="phoneHint">号码只在本地保存，不会上传。</p>
-    </aside>
-  </section>
-
-  <!-- ============ 报告 ============ -->
-  <section class="view" id="view-report" hidden>
-    <section class="card report">
-      <div class="card-head no-print">
-        <h2>会话报告</h2>
-        <div class="row">
-          <button class="ghost" id="backDetect" type="button">回到检测</button>
-          <button class="primary" id="printBtn" type="button">导出 PDF</button>
-        </div>
-      </div>
-      <div class="empty" id="reportEmpty">
-        <h2>还没有报告</h2>
-        <p class="hint">在「检测」里点「结束对话 · 生成报告」，报告固定在这一刻，不随之后的对话变化。</p>
-      </div>
-      <article id="reportPaper" hidden>
-        <header class="paper-head">
-          <h1>A30 会话风险报告</h1>
-          <p class="hint" id="paperMeta"></p>
-        </header>
-        <div class="paper-body" id="paperBody"></div>
-        <p class="disclaimer" id="paperDisclaimer"></p>
-      </article>
-    </section>
-  </section>
-
-</main>
-
-<div class="loopback" id="loopback" hidden></div>
-<div class="toast" id="toast" hidden></div>
-
-<div class="overlay" id="ovl" hidden>
-  <div class="overlay-card">
-    <p class="ovl-kicker">L3 紧急</p>
-    <h1 id="ovlTitle">检测到高风险诈骗</h1>
-    <p id="ovlText"></p>
-    <div class="row">
-      <button class="primary" id="ovlStop" type="button">停止并挂断</button>
-      <button class="ghost" id="ovlToAlert" type="button">查看证据链</button>
     </div>
-    <p class="hint" id="ovlVoice"></p>
+  </section>
+
+  <!-- ================= 告警 ================= -->
+  <section class="view" id="view-alert">
+    <div class="pagehead">
+      <h1>告警</h1>
+      <div class="sub">L2 警告 / L3 紧急 · 通知监护人 · 监护人回写“已介入”</div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2><span class="n">3</span>最近告警</h2>
+        <div class="alertlist" id="alertList"></div>
+
+        <div id="alertDetail"></div>
+
+        <div class="stepline" id="alertSteps">
+          <span class="b" id="st-push"></span>已推送
+          <span class="b" id="st-read"></span>已读
+          <span class="b" id="st-ack"></span>已介入
+        </div>
+
+        <div class="hr"></div>
+        <div class="muted" style="line-height:1.9">
+          这一屏对应 <b>FR-3.3</b>：告警 → 推送 → 监护人<b>看见</b>（已读）→ 确认回写。<br>
+          左侧列表由检测结果生成；右侧手机是“监护人端”的同一页面视图。
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="n">4</span>监护人端（同一页面 · 手机视图）</h2>
+        <div class="guardian">
+          <div class="phone">
+            <div class="screen">
+              <div class="scr-top">
+                <div class="av">守</div>
+                <div>
+                  <div class="nm">安全守护 · 通知</div>
+                  <div class="st" id="scrState">· 官方账号</div>
+                </div>
+              </div>
+              <div class="chat" id="chat"></div>
+              <div class="actbar">
+                <button class="btn" id="callBtn" type="button">打电话给本人</button>
+                <button class="btn pri" id="ackBtn" type="button">我已介入</button>
+                <button class="btn" id="callPolice" type="button">一键 96110</button>
+              </div>
+            </div>
+          </div>
+          <div class="muted" style="text-align:center" id="ackState">—</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 报告 ================= -->
+  <section class="view" id="view-report">
+    <div class="pagehead">
+      <h1>报告</h1>
+      <div class="sub">五段结构 · 可直接导出 PDF</div>
+      <div class="spacer"></div>
+      <button class="btn pri no-print" id="printBtn">导出 PDF</button>
+    </div>
+
+    <div id="reportPaper"></div>
+  </section>
+
+</div>
+
+<!-- L3 全屏 -->
+<div class="overlay" id="ovl">
+  <div class="sheet">
+    <div class="top">
+      <div class="lv">
+        <span class="badge l3">L3 紧急</span>
+        <div class="wave"><i></i><i></i><i></i><i></i></div>
+        <span class="muted" id="voiceState">语音播报中…</span>
+      </div>
+      <h2>这很可能是诈骗，请立即停止操作</h2>
+      <div class="muted" id="ovlSub">—</div>
+    </div>
+    <div class="body" id="ovlBody"></div>
+    <div class="foot2">
+      <span class="muted" style="margin-right:auto" id="ovlGuardian">—</span>
+      <button class="btn" id="ovlClose">我知道了</button>
+      <button class="btn pri" id="ovlToAlert">看告警与监护人</button>
+    </div>
   </div>
 </div>
 
-<div class="overlay" id="setOvl" hidden>
-  <div class="overlay-card narrow">
-    <h1>监护人设置</h1>
-    <label>姓名 <input id="gName" placeholder="张*" /></label>
-    <label>关系 <input id="gRel" placeholder="女儿 / 儿子 / 邻居" /></label>
-    <label>第二联系人 <input id="gSecond" placeholder="138****0000" /></label>
-    <label>推送通道
-      <select id="gHook">
-        <option value="local">本地预览（未接 webhook）</option>
-        <option value="wecom">企业微信机器人</option>
-      </select>
-    </label>
-    <p class="hint">号码只存本地；选「本地预览」时告警页显示"未推送（降级）"，不假装已发送。</p>
-    <div class="row">
-      <button class="primary" id="setSave" type="button">保存</button>
-      <button class="ghost" id="setClose" type="button">取消</button>
+<!-- 设置：监护人配置 -->
+<div class="overlay" id="setOvl">
+  <div class="sheet" style="width:min(520px,100%)">
+    <div class="top">
+      <h2 style="font-size:19px;color:var(--navy);margin:0 0 4px">设置</h2>
+      <div class="muted">监护人配置 · 决定 L3 紧急时通知谁</div>
+    </div>
+    <div class="body">
+      <label class="fld">
+        <span>监护人姓名</span>
+        <input id="gName" maxlength="12" placeholder="如：张*">
+      </label>
+      <label class="fld">
+        <span>与本人关系</span>
+        <select id="gRel">
+          <option>女儿</option>
+          <option>儿子</option>
+          <option>配偶</option>
+          <option>父母</option>
+          <option>其他亲友</option>
+        </select>
+      </label>
+      <label class="fld">
+        <span>第二联系人</span>
+        <input id="gSecond" maxlength="12" placeholder="可选；填了 L3 时同时通知">
+      </label>
+      <label class="fld">
+        <span>推送通道</span>
+        <select id="gHook">
+          <option value="1">已配置 GUARDIAN_WEBHOOK</option>
+          <option value="0">未配置（降级：如实显示未推送）</option>
+        </select>
+      </label>
+      <p class="muted" style="margin-top:14px;line-height:1.8">
+        这里只影响「通知谁、有没有通道」，不影响判定分数。<br>
+        真实环境里姓名只存脱敏值（如「张*」），不落原文。
+      </p>
+    </div>
+    <div class="foot2">
+      <span class="muted" style="margin-right:auto" id="setMsg">—</span>
+      <button class="btn" id="setCancel" type="button">取消</button>
+      <button class="btn pri" id="setSave" type="button">保存</button>
     </div>
   </div>
 </div>
 
-<script src="/static/presets.js"></script>
-<script src="/static/api.js"></script>
+<div class="toast" id="toast"></div>
+
+<!-- 加载顺序即依赖顺序：适配层 → 画像 → 告警 → 报告 → 入口（都是普通 script，file:// 下打不开后端只提示不崩） -->
+<script src="/static/adapter.js"></script>
 <script src="/static/profile.js"></script>
-<script src="/static/store.js"></script>
 <script src="/static/alert.js"></script>
 <script src="/static/report.js"></script>
 <script src="/static/app.js"></script>

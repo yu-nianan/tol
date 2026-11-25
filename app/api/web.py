@@ -8,10 +8,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse
 
 router = APIRouter(tags=["web"])
+
+# 前端资产根目录（ADR-0006）：index.html 用 /static/xxx 引用同目录的 js/css，
+# 不再把 app.js / style.css 内联进 HTML —— 内联是"改完忘了重新内联"的事故来源。
+FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
+ASSET_SUFFIXES = {".js", ".css", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".ico", ".woff2"}
 
 PAGE = """<!doctype html>
 <html lang="zh-CN">
@@ -144,5 +149,21 @@ def index() -> str:
     return PAGE
 
 
+@router.get("/static/{path:path}", response_class=FileResponse, include_in_schema=False)
+def static(path: str) -> FileResponse:
+    """静态资产：只放行 `frontend/` 下白名单后缀的文件，挡住 `../` 与隐藏文件。
+
+    不用 `app.mount(StaticFiles(...))`：挂载必须写进 `app/main.py`，而入口文件是禁区；
+    用普通路由就够了，还顺便把后缀白名单做成显式的。
+    """
+    root = FRONTEND.resolve()
+    target = (root / path).resolve()
+    if root not in target.parents or target.suffix.lower() not in ASSET_SUFFIXES:
+        raise HTTPException(status_code=404, detail="not found")
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="not found")
+    return FileResponse(target)
+
+
 def page_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "frontend" / "index.html"
+    return FRONTEND / "index.html"

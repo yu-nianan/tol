@@ -198,9 +198,10 @@ function addTurn(who){
  * 失败时如实提示并保留上一轮结果，绝不本地编一个分数。
  */
 var busy = false;
+/* 返回 Promise：逐轮回放（深链 run=）要等这一轮渲染完再加下一轮，否则曲线只有最后一个点 */
 function predict(opts){
-  if (busy) return;
-  if (!state.conv.length) { state.last = null; render(); return; }
+  if (busy) return Promise.resolve(state.last);
+  if (!state.conv.length) { state.last = null; render(); return Promise.resolve(null); }
   busy = true;
   var box = $("#resultBox");
   $("#emptyState").style.display = "none";
@@ -208,26 +209,41 @@ function predict(opts){
   var t0 = Date.now();
   var role = $("#role").value;
 
-  A30Adapter.analyze(state.conv, role, opts || {}).then(function(r){
+  return A30Adapter.analyze(state.conv, role, opts || {}).then(function(r){
     var wait = Math.max(0, MIN_LOADING - (Date.now() - t0));
-    setTimeout(function(){
-      state.last = r;
-      if (r.alertId) state.lastAlertId = r.alertId;
-      var h = state.history.filter(function(x){ return x.turn < r.turns; });
-      h.push({ turn: r.turns, score: r.score, level: r.level });
-      state.history = h;
-      if (box) box.classList.remove("loading");
-      busy = false;
-      render();
-      if (state.view === "report") renderReport();
-    }, wait);
+    return new Promise(function(resolve){
+      setTimeout(function(){
+        state.last = r;
+        if (r.alertId) state.lastAlertId = r.alertId;
+        var h = state.history.filter(function(x){ return x.turn < r.turns; });
+        h.push({ turn: r.turns, score: r.score, level: r.level });
+        state.history = h;
+        if (box) box.classList.remove("loading");
+        busy = false;
+        render();
+        if (state.view === "report") renderReport();
+        resolve(r);
+      }, wait);
+    });
   }).catch(function(e){
     if (box) box.classList.remove("loading");
     busy = false;
     toast("判别失败：" + e.message);
     $("#latVal").textContent = "—";
     if (!state.last) render();
+    return null;
   });
+}
+
+/* 深链回放：一条一条加、一条一条判，报告里的曲线才有每一轮的点 */
+function replay(turns){
+  var i = 0;
+  (function step(){
+    if (i >= turns.length) return;
+    state.conv.push(turns[i]);
+    i += 1;
+    predict().then(step);
+  })();
 }
 
 /* ---------- 渲染结果（每加一条就重判） ---------- */
@@ -676,11 +692,12 @@ function boot(){
     var k = h.split("run=")[1].split("&")[0];
     if (CONVOS[k]) {
       if (!wantView) switchView("detect");
-      state.conv = CONVOS[k].turns.map(function(t){ return { w:t.w, t:t.t }; });
+      var turns = CONVOS[k].turns.map(function(t){ return { w:t.w, t:t.t }; });
+      state.conv = [];
       state.level = 0;
       state.last = null;
       newSession();
-      predict();
+      replay(turns);
     }
   }
   if (h.indexOf("overlay") >= 0) { switchView("detect"); openOverlay(95.3); }

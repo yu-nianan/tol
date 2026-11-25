@@ -15,6 +15,7 @@ from app.core.config import KB_DIR, settings
 from app.core.logging import get_logger
 from app.pipelines.decision.scoring import (
     CASE_MIN_SIM,
+    DIM_WEIGHTS,
     STAGE_FLOOR_FROM,
     STAGE_FLOOR_SCORE,
     STAGE_MIN_HITS,
@@ -177,6 +178,9 @@ class DetectionEngine:
             # 维度得分率原样透出（缺失维度 None 不出现）；分数不含此项之外的换算，
             # 前端只做展示，权重口径留在 scoring.py（ADR-0006）
             dims={key: round(float(value), 3) for key, value in dims.items() if value is not None},
+            # 权重也透出：前端要画"得分率 × 权重 = 贡献"，但权重只有 scoring 一处定义，
+            # 这里只做转发，前端不写常量（ADR-0006）
+            dim_weights={key: round(float(value) * 100, 1) for key, value in DIM_WEIGHTS.items()},
         )
 
         state.turns += 1

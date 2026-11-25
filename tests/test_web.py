@@ -31,11 +31,28 @@ def test_static_asset_is_served() -> None:
     resp = client.get("/static/app.js")
     assert resp.status_code == 200
     assert "javascript" in resp.headers["content-type"]
-    assert "getElementById" in resp.text
+    # 页面已接后端：app.js 里出现 adapter 调用（不再是原型自带的假判别器）
+    assert "A30Adapter.analyze" in resp.text
+
+    adapter = client.get("/static/adapter.js")
+    assert adapter.status_code == 200
+    assert "dim_weights" in adapter.text
 
     css = client.get("/static/style.css")
     assert css.status_code == 200
     assert "text/css" in css.headers["content-type"]
+
+
+def test_detect_exposes_dim_weights() -> None:
+    """前端画"得分率 × 权重"要用权重；权重口径只在 scoring.py，接口必须透出。"""
+    resp = client.post(
+        "/api/v1/detect/text",
+        json={"text": "我是市公安局的，你涉嫌洗钱，把钱转到安全账户", "session_id": "t-web-1"},
+    )
+    assert resp.status_code == 200
+    weights = resp.json()["decision"]["dim_weights"]
+    assert weights["stage"] == 30.0
+    assert sum(weights.values()) == 100.0
 
 
 def test_static_rejects_traversal() -> None:

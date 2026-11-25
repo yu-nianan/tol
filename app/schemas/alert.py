@@ -88,6 +88,9 @@ class Decision(BaseModel):
     # 缺失的维度不出现（与 scoring 的归一化口径一致）；前端「维度得分率」面板据此渲染，
     # 权重口径只在 scoring.py 一处，不在前端复制，避免两端漂移（ADR-0006）。
     dims: dict[str, float] = Field(default_factory=dict)
+    # 各维度的权重（百分数，如 stage=30）。只有 scoring.py 能定这个值，
+    # 这里只做转发，前端不许自己写权重常量（否则加减权会后端改了前端不跟）。
+    dim_weights: dict[str, float] = Field(default_factory=dict)
 
     @property
     def level_label(self) -> str:

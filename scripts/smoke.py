@@ -1,4 +1,4 @@
-﻿"""冒烟测试：服务能不能起、能不能判别、能不能在 10 秒内返回。
+"""冒烟测试：服务能不能起、能不能判别、能不能在 10 秒内返回。
 
 只用标准库。用法：
     python scripts/smoke.py                     # 默认 http://127.0.0.1:8000
@@ -112,7 +112,7 @@ def main() -> int:
         and "/static/app.js" in page_html
         and "A30" in page_html
         and asset_status == 200
-        and "getElementById" in asset_js
+        and "A30Adapter.analyze" in asset_js
     )
     check("6/6 演示页与前端资产", ok, f"page={page_status} asset={asset_status} js_len={len(asset_js)}")
 

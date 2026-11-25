@@ -1,4 +1,4 @@
-"""冒烟测试：服务能不能起、能不能判别、能不能在 10 秒内返回。
+﻿"""冒烟测试：服务能不能起、能不能判别、能不能在 10 秒内返回。
 
 只用标准库。用法：
     python scripts/smoke.py                     # 默认 http://127.0.0.1:8000
@@ -10,6 +10,7 @@
     3. 正常文本 → level ≤ 1
     4. 单次检测端到端 < 10 秒
     5. 空文本 → 422
+    6. / 返回演示页，且它能取到 /static/app.js（前端资产不再内联，靠 /static 路由）
 """
 
 from __future__ import annotations
@@ -64,6 +65,19 @@ def detect(text: str, session_id: str = "smoke", role: str = "normal"):
     return request("POST", "/api/v1/detect/text", {"text": text, "session_id": session_id, "role": role})
 
 
+def fetch_text(path: str, timeout: float = 10.0):
+    """取 HTML / JS 这类非 JSON 响应，返回 (状态码, 文本, 毫秒)。"""
+    url = f"{BASE}{path}"
+    req = urllib.request.Request(url, headers={"Accept": "*/*"}, method="GET")
+    started = time.perf_counter()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+            return resp.status, body, (time.perf_counter() - started) * 1000
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read().decode("utf-8", errors="replace"), (time.perf_counter() - started) * 1000
+
+
 def main() -> int:
     try:
         status, body, _ = request("GET", "/health")
@@ -73,23 +87,34 @@ def main() -> int:
         return 1
 
     ok = status == 200 and bool(body) and body.get("kb_scripts", 0) > 0
-    check("1/5 health", ok, f"status={status} kb_scripts={(body or {}).get('kb_scripts')}")
+    check("1/6 health", ok, f"status={status} kb_scripts={(body or {}).get('kb_scripts')}")
 
     status, body, ms = detect(SCAM, "smoke-1", "elder")
     decision = (body or {}).get("decision", {}) or {}
     ok = status == 200 and decision.get("score", 0) >= 60 and decision.get("level", 0) >= 2
-    check("2/5 诈骗文本判为高危", ok, f"status={status} score={decision.get('score')} level={decision.get('level')}")
+    check("2/6 诈骗文本判为高危", ok, f"status={status} score={decision.get('score')} level={decision.get('level')}")
 
     status, body, _ = detect(NORMAL, "smoke-2")
     decision = (body or {}).get("decision", {}) or {}
     ok = status == 200 and decision.get("level", 9) <= 1
-    check("3/5 正常文本不误报", ok, f"status={status} score={decision.get('score')} level={decision.get('level')}")
+    check("3/6 正常文本不误报", ok, f"status={status} score={decision.get('score')} level={decision.get('level')}")
 
     status, body, ms = detect(SCAM2, "smoke-3", "student")
-    check("4/5 端到端 < 10s", status == 200 and ms < 10000, f"latency={ms:.0f}ms")
+    check("4/6 端到端 < 10s", status == 200 and ms < 10000, f"latency={ms:.0f}ms")
 
     status, body, _ = detect("   ", "smoke-4")
-    check("5/5 空文本被拒", status == 422, f"status={status}")
+    check("5/6 空文本被拒", status == 422, f"status={status}")
+
+    page_status, page_html, _ = fetch_text("/")
+    asset_status, asset_js, _ = fetch_text("/static/app.js")
+    ok = (
+        page_status == 200
+        and "/static/app.js" in page_html
+        and "A30" in page_html
+        and asset_status == 200
+        and "getElementById" in asset_js
+    )
+    check("6/6 演示页与前端资产", ok, f"page={page_status} asset={asset_status} js_len={len(asset_js)}")
 
     failed = [name for name, ok, _ in results if not ok]
     print()
@@ -102,3 +127,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

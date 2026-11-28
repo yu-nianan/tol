@@ -27,11 +27,15 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from app.core.limits import MAX_IMAGE_BYTES as MAX_IMAGE_BYTES_LIMIT
+
 logger = logging.getLogger(__name__)
 
 # 上限（任务单冻结）：4MB / 4000px
-MAX_IMAGE_BYTES = 4 * 1024 * 1024
+# 4MB 的唯一定义在 app/core/limits.py（上传口也用它做限量读取），这里只引用，
+# 免得两处数字不同步。
 MAX_IMAGE_SIDE = 4000
+MAX_IMAGE_BYTES = MAX_IMAGE_BYTES_LIMIT
 CLI_TIMEOUT_SECONDS = 30
 
 PNG_SIGNATURE = b"\x89PNG"

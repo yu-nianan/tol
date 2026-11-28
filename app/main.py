@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import alerts, detect, health, kb, web
 from app.core.config import settings
 from app.core.errors import AppError, app_error_handler, unhandled_error_handler
+from app.core.limits import MAX_REQUEST_BYTES, BodySizeLimitMiddleware
 from app.core.logging import get_logger, setup_logging
 from app.pipelines.decision.engine import get_engine
 
@@ -48,6 +49,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # 上传体积兜底：只看 Content-Length，超限在进路由前就 413（ADR-0009）。
+    # 细粒度的音频/图片上限在 app/api/detect.py 里按文件类型分别执行。
+    application.add_middleware(BodySizeLimitMiddleware, max_bytes=MAX_REQUEST_BYTES)
     application.add_exception_handler(AppError, app_error_handler)
     application.add_exception_handler(Exception, unhandled_error_handler)
 
